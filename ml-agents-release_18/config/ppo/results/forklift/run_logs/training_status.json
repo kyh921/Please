@@ -1,0 +1,38 @@
+{
+    "ForkliftAgent": {
+        "checkpoints": [
+            {
+                "steps": 499964,
+                "file_path": "results\\forklift\\ForkliftAgent\\ForkliftAgent-499964.onnx",
+                "reward": 1.7683932884879734,
+                "creation_time": 1750826950.245726,
+                "auxillary_file_paths": [
+                    "results\\forklift\\ForkliftAgent\\ForkliftAgent-499964.pt"
+                ]
+            },
+            {
+                "steps": 500134,
+                "file_path": "results\\forklift\\ForkliftAgent\\ForkliftAgent-500134.onnx",
+                "reward": 1.7865626811981201,
+                "creation_time": 1750826950.3332906,
+                "auxillary_file_paths": [
+                    "results\\forklift\\ForkliftAgent\\ForkliftAgent-500134.pt"
+                ]
+            }
+        ],
+        "final_checkpoint": {
+            "steps": 500134,
+            "file_path": "results\\forklift\\ForkliftAgent.onnx",
+            "reward": 1.7865626811981201,
+            "creation_time": 1750826950.3332906,
+            "auxillary_file_paths": [
+                "results\\forklift\\ForkliftAgent\\ForkliftAgent-500134.pt"
+            ]
+        }
+    },
+    "metadata": {
+        "stats_format_version": "0.3.0",
+        "mlagents_version": "0.27.0",
+        "torch_version": "1.13.1+cpu"
+    }
+}
