@@ -3,12 +3,11 @@ using UnityEngine;
 
 #if UNITY_MLAGENTS
 using Unity.MLAgents;
-using Unity.MLAGENTS.Actuators;
-using Unity.MLAGENTS.Sensors;
+using Unity.MLAgents.Actuators;
+using Unity.MLAgents.Sensors;
 #endif
 
 [RequireComponent(typeof(DroneController))]
-[RequireComponent(typeof(RadioTransceiver))]
 [RequireComponent(typeof(CommsSensor))]
 public class DroneAgent :
 #if UNITY_MLAGENTS
@@ -20,7 +19,6 @@ public class DroneAgent :
     // ===== 이동 제어 =====
     public float yawCmdDegPerSec = 0f;
     DroneController ctrl;
-    RadioTransceiver radio;
     CommsSensor sensor;
 
     Vector3 prevPos;
@@ -107,7 +105,6 @@ public class DroneAgent :
     void Awake()
     {
         ctrl = GetComponent<DroneController>();
-        radio = GetComponent<RadioTransceiver>();
         sensor = GetComponent<CommsSensor>();
         prevPos = transform.position;
     }
