@@ -8,7 +8,6 @@ using Unity.MLAgents.Sensors;
 #endif
 
 [RequireComponent(typeof(DroneController))]
-[RequireComponent(typeof(CommsSensor))]
 public class DroneAgent :
 #if UNITY_MLAGENTS
     Agent
@@ -19,7 +18,6 @@ public class DroneAgent :
     // ===== 이동 제어 =====
     public float yawCmdDegPerSec = 0f;
     DroneController ctrl;
-    CommsSensor sensor;
 
     Vector3 prevPos;
     public float LastStepDistance { get; private set; }
@@ -105,7 +103,6 @@ public class DroneAgent :
     void Awake()
     {
         ctrl = GetComponent<DroneController>();
-        sensor = GetComponent<CommsSensor>();
         prevPos = transform.position;
     }
 
