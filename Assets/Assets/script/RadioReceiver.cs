@@ -161,6 +161,7 @@ public class RadioReceiver : MonoBehaviour
         }
     }
 
+
     /// 드론(srcId)이 이 UE에서 가져갈 값:
     ///   sumWeighted = Σ( (A_l 또는 QoE) × demand )  (pop)
     ///   overconnect = max(0, 연결드론수 - 1)  — srcId가 이 UE와 연결되어 있을 때만 반영
