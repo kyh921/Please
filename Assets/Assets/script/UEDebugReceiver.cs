@@ -1,19 +1,18 @@
+// UEDebugReceiver.cs (교체)
 using UnityEngine;
-
 
 public class UEDebugReceiver : MonoBehaviour
 {
-    RadioTransceiver rt;        // 부모에서 찾음
+    RadioReceiver rr;
     Renderer ren;
     Color orig;
     bool hasBaseColor, hasColor;
 
     void Awake()
     {
-        // 부모/자식 어디서든 RadioTransceiver 찾기 (우선 부모)
-        rt = GetComponent<RadioTransceiver>();
-        if (!rt) rt = GetComponentInParent<RadioTransceiver>();
-        if (!rt) rt = GetComponentInChildren<RadioTransceiver>();
+        rr = GetComponent<RadioReceiver>();
+        if (!rr) rr = GetComponentInParent<RadioReceiver>();
+        if (!rr) rr = GetComponentInChildren<RadioReceiver>();
 
         ren = GetComponent<Renderer>();
         if (!ren) ren = GetComponentInChildren<Renderer>();
@@ -23,7 +22,6 @@ public class UEDebugReceiver : MonoBehaviour
             hasBaseColor = ren.sharedMaterial.HasProperty("_BaseColor");
             hasColor     = ren.sharedMaterial.HasProperty("_Color");
 
-            // 원래 색 저장
             var mpb = new MaterialPropertyBlock();
             ren.GetPropertyBlock(mpb);
             if (hasBaseColor) orig = mpb.GetColor("_BaseColor");
@@ -31,14 +29,17 @@ public class UEDebugReceiver : MonoBehaviour
             else orig = Color.white;
         }
 
-        if (rt) rt.OnReceive += OnRx;
-        // 태그 보장
-        gameObject.tag = "UEViz";
+        if (rr != null) rr.OnReceive += OnRx;
+
+        gameObject.tag = "UEViz"; // DemandArea 색 변경 제외용
     }
 
-    void OnDestroy(){ if (rt != null) rt.OnReceive -= OnRx; }
+    void OnDestroy()
+    {
+        if (rr != null) rr.OnReceive -= OnRx;
+    }
 
-    void OnRx(int srcId, byte[] payload, float rssiDbm)
+    void OnRx(int srcId, byte[] payload, float sinrDb)
     {
         if (!ren) return;
         StopAllCoroutines();
