@@ -47,6 +47,7 @@ public class RadioTransceiver : MonoBehaviour
 
         return linkModel.EstimateRssiDbm(txPos, txPowerDbm, rxPos);
     }
+    
 
     /// <summary> Convenience: 모든 노드 중 자신을 제외하고 channel이 같은 대상만 나열 </summary>
     public IEnumerable<RadioTransceiver> NeighborsSameChannel()

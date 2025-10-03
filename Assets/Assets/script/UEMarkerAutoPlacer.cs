@@ -10,7 +10,7 @@ public static class UEMarkerAutoPlacer
     {
         int made = 0, updated = 0;
 
-        foreach (var rt in Object.FindObjectsOfType<RadioTransceiver>())
+        foreach (var rt in Object.FindObjectsOfType<RadioReceiver>())
         {
             if (rt.role != NodeRole.UE) continue;
 
