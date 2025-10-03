@@ -139,6 +139,8 @@ public class DroneAgent :
         s.AddObservation(Mathf.Clamp01(linkable / 50f));
     }
 
+    public bool debugReward = false;
+
     public override void OnActionReceived(ActionBuffers actions)
     {
         var a = actions.ContinuousActions;
@@ -158,6 +160,11 @@ public class DroneAgent :
         float ene = ComputeEnergyReward();
 
         AddReward(qoe * cov * ene);
+
+        if (debugReward) {
+        Debug.Log($"[Agent {name}] QoE={qoe:F3}  Cov={cov:F3}  Ene={ene:F3}  => R={reward:F4}  " +
+                  $"num={_qoeNumeratorThisStep:F3} denom={totalWeightDenom:F1}  overlap={_overconnectThisStep}");
+    }
 
         // 다음 스텝 대비
         _qoeNumeratorThisStep = 0f;
