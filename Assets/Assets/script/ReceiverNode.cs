@@ -7,7 +7,7 @@ public class ReceiverNode : MonoBehaviour
     public Transform rxAnchor;
 
     [Header("Auto Anchor (fallback)")]
-    public float upOffset = 1.0f;   // 중심에서 위로 띄우기(건물 중심이 바닥이면  높여줌)
+    public float upOffset = 0;   // 중심에서 위로 띄우기(건물 중심이 바닥이면  높여줌)
     public bool drawGizmo = true;
 
     public Vector3 GetRxPosition()
