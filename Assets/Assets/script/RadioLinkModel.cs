@@ -46,7 +46,7 @@ public class RadioLinkModel : MonoBehaviour
                 // 거리 계산
                 double distance = Vector3.Distance(tx, rx);
                 if (distance < 1e-3) distance = 1e-3; // 최소 1 mm
-                distances[i, j] = distance;
+                distances[i, j] = distance*30;
 
                 // 고도각 계산
                 Vector3 dir = (rx - tx).normalized;

@@ -26,6 +26,9 @@ public class RadioLinkRuntime : MonoBehaviour
         if (!model) model = GetComponent<RadioLinkModel>();
     }
 
+    public bool debugLog = false;
+    public int debugTopPairs = 5; // 프레임당 몇 쌍만 찍을지
+
     void Update()
     {
         _t += Time.deltaTime;
@@ -61,6 +64,7 @@ public class RadioLinkRuntime : MonoBehaviour
 
         // 3) 거리/각도 → 경로손실 → 수신전력 → SINR
         model.GetAllDistancesAndAngles(out var distances, out var angles);
+        var (dist, ang) = (distances, angles);
         var lossDb = model.GetAllHataLosses();
         var rxPwrDbm = model.GetAllRxPowers(angles, lossDb);
         var rxPwrMw = RadioLinkModel.ConvertRxPowersToMw(rxPwrDbm);
@@ -77,6 +81,17 @@ public class RadioLinkRuntime : MonoBehaviour
                 float sinrDb_ij = (float)sinrDb[i, j];
                 _rxList[j].AcceptSinrFromModel(droneId, sinrDb_ij);
             }
+        }
+
+        if (debugLog)
+        {
+            int cnt = 0;
+            for (int i = 0; i < txCount && cnt < debugTopPairs; i++)
+                for (int j = 0; j < rxCount && cnt < debugTopPairs; j++, cnt++)
+                {
+                    Debug.Log($"[RT] TX{i}->UE{j}  d={dist[i, j]:F1}m, θ={ang[i, j] * Mathf.Rad2Deg:F1}°, " +
+                              $"PL={lossDb[i, j]:F1} dB, Rx={rxPwrDbm[i, j]:F1} dBm, SINR={sinrDb[i, j]:F1} dB");
+                }
         }
     }
 

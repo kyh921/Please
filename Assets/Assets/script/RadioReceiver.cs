@@ -14,6 +14,8 @@ public class RadioReceiver : MonoBehaviour
     // ===== Static registry (옵션: 씬에서 UE 빠르게 모으기) =====
     static readonly HashSet<RadioReceiver> s_all = new HashSet<RadioReceiver>();
     public static IReadOnlyCollection<RadioReceiver> All => s_all;
+    public bool debugLog = false;
+
 
     [Header("Identity")]
     [SerializeField] private int _nodeId = 0;
@@ -126,6 +128,12 @@ public class RadioReceiver : MonoBehaviour
         // 디버그 저장
         LastCQI = cqi; LastQm = Qm; LastITbs = iTbs; LastTbsBits = tbsBits; LastAl_bps = Al_bps; LastAl_Mbps = Al_Mbps; LastQoE = QoE;
 
+        if (debugLog)
+        {
+            Debug.Log($"[UE {name}] src={srcId} SINR={sinrDb:F2} dB, CQI={cqi}, iTBS={iTbs}, " +
+                      $"A_l={Al_Mbps:F3} Mbps, QoE={QoE:F3}");
+        }
+
         // 4) 연결 판정 + 누산
         if (sinrDb >= rxThresholdSinrDb)
         {
@@ -135,8 +143,16 @@ public class RadioReceiver : MonoBehaviour
             float value = (metric == ReceiverMetric.AlThroughputMbps) ? Al_Mbps : QoE;
             float weighted = Mathf.Max(0f, value) * demand;
 
-            if (_sumWeighted.TryGetValue(srcId, out float prev))
-                _sumWeighted[srcId] = prev + weighted;
+            if (debugLog)
+            {
+                // prevTmp 라는 다른 이름으로 사용
+                float nowSum = (_sumWeighted.TryGetValue(srcId, out var prevTmp) ? prevTmp + weighted : weighted);
+                Debug.Log($"[UE {name}] CONNECT src={srcId} demand={demand}  addWeighted={weighted:F3}  nowSum={nowSum:F3}");
+            }
+
+            // 여기서는 prevVal 로 사용 (prev 라는 이름 재사용 금지)
+            if (_sumWeighted.TryGetValue(srcId, out float prevVal))
+                _sumWeighted[srcId] = prevVal + weighted;
             else
                 _sumWeighted[srcId] = weighted;
 
@@ -158,6 +174,11 @@ public class RadioReceiver : MonoBehaviour
             overconnect = Mathf.Max(0, _connectedSrc.Count - 1);
         else
             overconnect = 0;
+
+        if (debugLog)
+        {
+            Debug.Log($"[UE {name}] POP by src={srcId}  sumWeighted={sumWeighted:F3}  overconnect={overconnect}");
+        }
     }
 
     /// 프레임 경계에서 전체 리셋(여러 드론이 모두 Pop한 뒤 매니저/센서가 호출)
