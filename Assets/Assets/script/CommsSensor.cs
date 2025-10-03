@@ -29,6 +29,8 @@ public class CommsSensor : MonoBehaviour
         _agent = GetComponent<DroneAgent>();
         _droneId = gameObject.GetInstanceID(); // RadioLinkModel must use the same ID
     }
+   
+    public bool debugLog = false;
 
     void Update()
     {
@@ -65,6 +67,9 @@ public class CommsSensor : MonoBehaviour
         _agent.ReportQoEAndOverlap(sumQoEThisFrame, maxOverlapThisFrame);
         // Note: ResetAggregation is optional because Pop removes the per-drone key.
         // If you prefer to clear all UE state at frame end, call ResetAggregation() from a manager.
+
+        if (debugLog) Debug.Log($"[Pull] src={_droneId}  ¥Ò(weightedQoE)={sumQoEThisFrame:F3},  maxOverlap={maxOverlapThisFrame}");
+        _agent.ReportQoEAndOverlap(sumQoEThisFrame, maxOverlapThisFrame);
     }
 
     static void CacheUEs()
