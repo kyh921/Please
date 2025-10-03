@@ -43,38 +43,30 @@ public class RadioLinkModel : MonoBehaviour
                 Vector3 tx = txPositions[i];
                 Vector3 rx = rxPositions[j];
 
-                // 거리 계산
-                double distance = Vector3.Distance(tx, rx);
-                if (distance < 1e-3) distance = 1e-3; // 최소 1 mm
-                distances[i, j] = distance*30;
+                //  실제 거리 (스케일링 금지)
+                double d = Vector3.Distance(tx, rx);
+                if (d < 1e-3) d = 1e-3;
+                distances[i, j] = d;
 
-                // 고도각 계산
-                Vector3 dir = (rx - tx).normalized;
-                Vector3 dirProj = Vector3.ProjectOnPlane(dir, Vector3.up);
-
-                if (dirProj.magnitude < 1e-6f) // 수직일 경우 방어
-                {
-                    angles[i, j] = Math.PI / 2.0;
-                }
-                else
-                {
-                    dirProj.Normalize();
-                    double dot = Math.Clamp(Vector3.Dot(dir, dirProj), -1f, 1f);
-                    angles[i, j] = Math.Acos(dot);
-                }
+                //  도넛패턴용 각도: 수직축 기준 θ = atan2(horizontal, |Δy|)
+                Vector3 diff = rx - tx;
+                double dy = Math.Abs(diff.y);
+                double h = Math.Sqrt(diff.x * diff.x + diff.z * diff.z);
+                angles[i, j] = Math.Atan2(h, Math.Max(1e-6, dy)); // rad
             }
         }
     }
-
     /// <summary>
     /// 모든 송수신기 쌍에 대해 Hata 모델 경로 손실 계산 (도시, 200~1500 MHz)
     /// </summary>
     public double[,] GetAllHataLosses()
     {
+        // 네 환경에 맞춘 스케일. (원래 30, 50, 70 쓰던 그 값)
+        const double distanceScale = 50.0;  // ← 네가 원하던 스케일 값
+
         int txCount = txPositions.Count;
         int rxCount = rxPositions.Count;
-        double[,] distances, angles;
-        GetAllDistancesAndAngles(out distances, out angles);
+        GetAllDistancesAndAngles(out var distances, out _);
 
         double[,] lossMatrix = new double[txCount, rxCount];
 
@@ -84,13 +76,14 @@ public class RadioLinkModel : MonoBehaviour
             {
                 double hB = txHeights[i];
                 double hM = rxHeights[j];
-                double d_km = distances[i, j] / 1000.0;
 
-                if (d_km < 1e-4) d_km = 1e-4; // 최소 0.1 m 방어
+                // 경로손실에만 거리 스케일 적용
+                double d_km = (distances[i, j] * distanceScale) / 1000.0;
+                if (d_km < 1e-4) d_km = 1e-4;
 
                 double cH = 3.2 * Math.Pow(Math.Log10(11.75 * hM), 2.0) - 4.97;
                 double lossDb = 69.55
-                    + 26.16 * Math.Log10(frequencyMHz)
+                    + 26.16 * Math.Log10(700.0)
                     - 13.82 * Math.Log10(hB)
                     - cH
                     + (44.9 - 6.55 * Math.Log10(hB)) * Math.Log10(d_km);
@@ -196,3 +189,4 @@ public class RadioLinkModel : MonoBehaviour
         return (sinrLinear, sinrDb);
     }
 }
+

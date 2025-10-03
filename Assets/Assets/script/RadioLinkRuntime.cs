@@ -2,32 +2,32 @@ using System.Collections.Generic;
 using UnityEngine;
 
 /// <summary>
-/// µå·Ð(¼Û½Å±â) ¡ê UE(¼ö½Å±â) Àü ½Ö¿¡ ´ëÇØ
-/// °Å¸®/°¢µµ/°æ·Î¼Õ½Ç/¼ö½ÅÀü·Â/SINRÀ» °è»êÇÏ°í
-/// UE·Î sinr(dB)À» ÁÖÀÔÇÏ´Â ·±Å¸ÀÓ µå¶óÀÌ¹ö.
+/// ï¿½ï¿½ï¿½(ï¿½Û½Å±ï¿½) ï¿½ï¿½ UE(ï¿½ï¿½ï¿½Å±ï¿½) ï¿½ï¿½ ï¿½Ö¿ï¿½ ï¿½ï¿½ï¿½ï¿½
+/// ï¿½Å¸ï¿½/ï¿½ï¿½ï¿½ï¿½/ï¿½ï¿½Î¼Õ½ï¿½/ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½/SINRï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½Ï°ï¿½
+/// UEï¿½ï¿½ sinr(dB)ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½Ï´ï¿½ ï¿½ï¿½Å¸ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½Ì¹ï¿½.
 /// </summary>
 [DisallowMultipleComponent]
 public class RadioLinkRuntime : MonoBehaviour
 {
-    [Tooltip("¸µÅ© °è»ê ÁÖ±â(ÃÊ)")]
+    [Tooltip("ï¿½ï¿½Å© ï¿½ï¿½ï¿½ ï¿½Ö±ï¿½(ï¿½ï¿½)")]
     public float updateInterval = 0.10f;
 
-    [Tooltip("°è»ê ÄÚ¾î(±âÁ¸ RadioLinkModel)¸¦ ¾À¿¡ ÇÏ³ª µÐ µÚ ¿©±â·Î ÇÒ´ç)")]
+    [Tooltip("ï¿½ï¿½ï¿½ ï¿½Ú¾ï¿½(ï¿½ï¿½ï¿½ï¿½ RadioLinkModel)ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ ï¿½Ï³ï¿½ ï¿½ï¿½ ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½Ò´ï¿½)")]
     public RadioLinkModel model;
 
     float _t;
-    // Ä³½Ã
+    // Ä³ï¿½ï¿½
     static readonly List<DroneAgent> _txList = new List<DroneAgent>(16);
     static readonly List<RadioReceiver> _rxList = new List<RadioReceiver>(256);
 
     void Reset()
     {
-        // °°Àº ¿ÀºêÁ§Æ®¿¡ ÀÖÀ¸¸é ÀÚµ¿ ¿¬°á ½Ãµµ
+        // ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Æ®ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½Úµï¿½ ï¿½ï¿½ï¿½ï¿½ ï¿½Ãµï¿½
         if (!model) model = GetComponent<RadioLinkModel>();
     }
 
     public bool debugLog = false;
-    public int debugTopPairs = 5; // ÇÁ·¹ÀÓ´ç ¸î ½Ö¸¸ ÂïÀ»Áö
+    public int debugTopPairs = 5; // ï¿½ï¿½ï¿½ï¿½ï¿½Ó´ï¿½ ï¿½ï¿½ ï¿½Ö¸ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
 
     void Update()
     {
@@ -37,13 +37,13 @@ public class RadioLinkRuntime : MonoBehaviour
 
         if (!model) return;
 
-        // 1) ¾À¿¡¼­ µå·Ð/UE ¼öÁý
+        // 1) ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½/UE ï¿½ï¿½ï¿½ï¿½
         CollectSceneObjects(_txList, _rxList);
         int txCount = _txList.Count;
         int rxCount = _rxList.Count;
         if (txCount == 0 || rxCount == 0) return;
 
-        // 2) ¸ðµ¨ ÀÔ·Â Ã¤¿ì±â (TX/RX À§Ä¡¡¤³ôÀÌ)
+        // 2) ï¿½ï¿½ ï¿½Ô·ï¿½ Ã¤ï¿½ï¿½ï¿½ (TX/RX ï¿½ï¿½Ä¡ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½)
         EnsureCapacity(model, txCount, rxCount);
 
         model.txPositions.Clear(); model.txHeights.Clear();
@@ -51,18 +51,18 @@ public class RadioLinkRuntime : MonoBehaviour
         {
             var tx = _txList[i].transform.position;
             model.txPositions.Add(tx);
-            model.txHeights.Add(Mathf.Max(1f, tx.y)); // ³ôÀÌ ¹æ¾î
+            model.txHeights.Add(Mathf.Max(1f, tx.y)); // ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½
         }
 
         model.rxPositions.Clear(); model.rxHeights.Clear();
         for (int j = 0; j < rxCount; j++)
         {
-            var p = _rxList[j].GetAntennaPosition(); // ReceiverNode ÀÖÀ¸¸é ±× À§Ä¡ »ç¿ë
+            var p = _rxList[j].GetAntennaPosition(); // ReceiverNode ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ ï¿½ï¿½Ä¡ ï¿½ï¿½ï¿½
             model.rxPositions.Add(p);
             model.rxHeights.Add(Mathf.Max(1f, p.y));
         }
 
-        // 3) °Å¸®/°¢µµ ¡æ °æ·Î¼Õ½Ç ¡æ ¼ö½ÅÀü·Â ¡æ SINR
+        // 3) ï¿½Å¸ï¿½/ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ ï¿½ï¿½Î¼Õ½ï¿½ ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ SINR
         model.GetAllDistancesAndAngles(out var distances, out var angles);
         var (dist, ang) = (distances, angles);
         var lossDb = model.GetAllHataLosses();
@@ -70,8 +70,8 @@ public class RadioLinkRuntime : MonoBehaviour
         var rxPwrMw = RadioLinkModel.ConvertRxPowersToMw(rxPwrDbm);
         var (_, sinrDb) = model.GetAllSINR(rxPwrMw);
 
-        // 4) °¢ ½Ö (µå·Ði, UEj)¿¡ ´ëÇØ UE·Î sinr(dB) ÁÖÀÔ
-        //    droneId: µå·Ð ¿ÀºêÁ§Æ®ÀÇ GetInstanceID (CommsSensor°¡ °°Àº ID·Î Pop)
+        // 4) ï¿½ï¿½ ï¿½ï¿½ (ï¿½ï¿½ï¿½i, UEj)ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ UEï¿½ï¿½ sinr(dB) ï¿½ï¿½ï¿½ï¿½
+        //    droneId: ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Æ®ï¿½ï¿½ GetInstanceID (CommsSensorï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ IDï¿½ï¿½ Pop)
         for (int i = 0; i < txCount; i++)
         {
             int droneId = _txList[i].gameObject.GetInstanceID();
@@ -89,7 +89,7 @@ public class RadioLinkRuntime : MonoBehaviour
             for (int i = 0; i < txCount && cnt < debugTopPairs; i++)
                 for (int j = 0; j < rxCount && cnt < debugTopPairs; j++, cnt++)
                 {
-                    Debug.Log($"[RT] TX{i}->UE{j}  d={dist[i, j]:F1}m, ¥è={ang[i, j] * Mathf.Rad2Deg:F1}¡Æ, " +
+                    Debug.Log($"[RT] TX{i}->UE{j}  d={dist[i, j]:F1}m, ï¿½ï¿½={ang[i, j] * Mathf.Rad2Deg:F1}ï¿½ï¿½, " +
                               $"PL={lossDb[i, j]:F1} dB, Rx={rxPwrDbm[i, j]:F1} dBm, SINR={sinrDb[i, j]:F1} dB");
                 }
         }
@@ -100,11 +100,11 @@ public class RadioLinkRuntime : MonoBehaviour
         txOut.Clear();
         rxOut.Clear();
         txOut.AddRange(Object.FindObjectsOfType<DroneAgent>(true));
-        // RadioReceiver´Â ³»ºÎ¿¡ Á¤Àû ·¹Áö½ºÆ®¸® AllÀ» °®°í ÀÖÀ¸´Ï ±×°É ¿ì¼± »ç¿ë
-        // (¾ø´Ù¸é FindObjectsOfType·Î ´ëÃ¼)
+        // RadioReceiverï¿½ï¿½ ï¿½ï¿½ï¿½Î¿ï¿½ ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Æ®ï¿½ï¿½ Allï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½×°ï¿½ ï¿½ì¼± ï¿½ï¿½ï¿½
+        // (ï¿½ï¿½ï¿½Ù¸ï¿½ FindObjectsOfTypeï¿½ï¿½ ï¿½ï¿½Ã¼)
         if (RadioReceiver.All != null)
             rxOut.AddRange(RadioReceiver.All as IEnumerable<RadioReceiver>);
-        if (rxOut.Count == 0) // ·¹Áö½ºÆ®¸®°¡ ºñ¾îÀÖÀ¸¸é Æú¹é
+        if (rxOut.Count == 0) // ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Æ®ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½
             rxOut.AddRange(Object.FindObjectsOfType<RadioReceiver>(true));
     }
 

@@ -1,3 +1,4 @@
+// DemandArea.cs
 using System.Linq;
 using UnityEngine;
 
@@ -18,14 +19,25 @@ public class DemandArea : MonoBehaviour
     public Color colorCovered = Color.green;              // covered
 
     [Header("Exclusions")]
-    public string excludeTag = "UEViz"; // UE 마커(시각화)는 색 변경에서 제외
+    [Tooltip("이 태그를 가진 Renderer는 색 변경에서 제외")]
+    public string excludeTag = "UEViz";
 
     [Header("Auto Coverage")]
-    public bool setCoveredOnReceive = true;      // 수신 이벤트에 반응하여 covered 처리
-    public bool findReceiverInHierarchy = true;  // 부모/자식에서 RadioReceiver 자동 탐색
+    [Tooltip("수신 이벤트가 오면 즉시 covered 처리")]
+    public bool setCoveredOnReceive = true;
+
+    [Tooltip("부모/자식/자기 자신에서 RadioReceiver를 자동 탐색")]
+    public bool findReceiverInHierarchy = true;
+
+    [Header("Auto Uncover")]
+    [Tooltip("이 시간(초) 동안 추가 수신이 없으면 covered 해제(원래 색으로 복귀)")]
+    public float loseCoverAfter = 0.5f;
 
     Renderer[] rends;
-    RadioReceiver rr; // ⬅ UE(=건물)에 붙은 수신기 참조
+    RadioReceiver rr;
+
+    // 마지막 임계 이상 수신 시각(Time.time)
+    float _lastReceiveTime = -1f;
 
     void Awake()
     {
@@ -47,10 +59,25 @@ public class DemandArea : MonoBehaviour
 
     void Start()
     {
-        // 초기 demand 자동 세팅
+        // 초기 demand 자동 셋업
         if (demand == 0 && kind == AreaKind.Building) demand = Random.Range(10, 51);
         if (demand == 0 && kind == AreaKind.Road)     demand = Random.Range(0, 31);
         ApplyColor();
+    }
+
+    void Update()
+    {
+        // 수신 기반으로 covered 유지하는 경우에만 자동 해제 수행
+        if (!setCoveredOnReceive) return;
+
+        if (covered && loseCoverAfter > 0f)
+        {
+            // 아직 수신한 적이 없거나, 일정 시간 동안 추가 수신이 없으면 covered 해제
+            if (_lastReceiveTime < 0f || (Time.time - _lastReceiveTime) > loseCoverAfter)
+            {
+                SetCovered(false); // demand 기반 색으로 복귀
+            }
+        }
     }
 
     void EnsureInit()
@@ -68,10 +95,10 @@ public class DemandArea : MonoBehaviour
         if (!rr) rr = GetComponentInChildren<RadioReceiver>();
     }
 
-    // RadioReceiver가 SINR 임계치(예: 0 dB) 이상일 때만 OnReceive를 발행하므로,
-    // 여기서는 단순히 covered 처리만 하면 된다.
+    // RadioReceiver에서 SINR 임계 이상일 때만 발생하는 OnReceive를 받아 covered=true 처리
     void HandleOnReceive(int srcId, byte[] payload, float sinrDb)
     {
+        _lastReceiveTime = Time.time;
         SetCovered(true);
     }
 
@@ -97,7 +124,7 @@ public class DemandArea : MonoBehaviour
         {
             if (!r) continue;
 
-            // UEViz 태그는 건드리지 않음(UE 마커 시각화 보호)
+            // excludeTag를 가진 Renderer는 색 변경 제외(UE 아이콘 등)
             if (!string.IsNullOrEmpty(excludeTag) && r.CompareTag(excludeTag)) continue;
 
             var mat = r.sharedMaterial;
