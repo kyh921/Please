@@ -83,7 +83,7 @@ public class RadioLinkRuntime : MonoBehaviour
             }
         }
 
-        if (debugLog)
+       /* if (debugLog)
         {
             int cnt = 0;
             for (int i = 0; i < txCount && cnt < debugTopPairs; i++)
@@ -93,6 +93,7 @@ public class RadioLinkRuntime : MonoBehaviour
                               $"PL={lossDb[i, j]:F1} dB, Rx={rxPwrDbm[i, j]:F1} dBm, SINR={sinrDb[i, j]:F1} dB");
                 }
         }
+       */
     }
 
     static void CollectSceneObjects(List<DroneAgent> txOut, List<RadioReceiver> rxOut)
