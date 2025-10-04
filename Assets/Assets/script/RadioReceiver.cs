@@ -191,7 +191,6 @@ public class RadioReceiver : MonoBehaviour
 
     public Vector3 GetAntennaPosition()
     {
-        var rn = GetComponent<ReceiverNode>();
-        return rn ? rn.GetRxPosition() : transform.position;
+        return transform.position;
     }
 }
