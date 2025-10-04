@@ -8,6 +8,8 @@ using Unity.MLAgents.Sensors;
 [RequireComponent(typeof(DroneController))]
 public class DroneAgent : Agent
 {
+    public DroneGroupManager Manager;   // 그룹 보상/종료용 매니저 참조
+
     // ===== 이동 제어 =====
     public float yawCmdDegPerSec = 0f;
     private DroneController ctrl;
@@ -19,15 +21,11 @@ public class DroneAgent : Agent
 
     // ===== QoE 보상 =====
     [Header("QoE reward")]
-    [Tooltip("분모 = Σ(전체 건물 가중치). 에피소드 시작 시 계산")]
     public float totalWeightDenom = 1f;
-
-    [Tooltip("보상 안정화를 위한 작은 값")]
     public float eps = 1e-6f;
 
-    // 집계 입력(프레임당)
-    private float _qoeNumeratorThisStep = 0f; // 내 드론의 Σ(A_l × UE가중치)
-    private int   _overconnectThisStep   = 0; // 유효 링크 수 - 1
+    private float _qoeNumeratorThisStep = 0f;
+    private int   _overconnectThisStep   = 0;
 
     public void BeginStepAggregation()
     {
@@ -41,7 +39,7 @@ public class DroneAgent : Agent
         _overconnectThisStep   = Mathf.Max(_overconnectThisStep, Mathf.Max(0, overconnect));
     }
 
-    // ===== 에너지 모델 (Table III) =====
+    // ===== 에너지 모델 =====
     [Header("Energy model (Table III)")]
     public float rho = 1.225f;
     public float s = 0.0157f;
@@ -91,17 +89,13 @@ public class DroneAgent : Agent
     public float collisionPenalty = -0.5f;
     public bool endOnCollision = true;
 
-    [Tooltip("작업영역 X 최소/최대, Z 최소/최대 (비대칭 지원)")]
     public float xMin = -623f, xMax = 44f;
     public float zMin = -531f, zMax = -2.5f;
-
-    [Tooltip("허용 고도 범위 (min,max)")]
     public Vector2 yLimit  = new Vector2(20f, 150f);
 
     public float boundaryPenalty = -0.2f;
     public bool endOnBoundary = true;
 
-    [Tooltip("커버리지 중복(오버커넥트) 1단위당 추가 패널티")]
     public float overlapPenaltyPerLink = 0.05f;
 
     public LayerMask obstacleLayers;
@@ -163,18 +157,20 @@ public class DroneAgent : Agent
         float qoe = ComputeQoEReward_Aggregated();
         float cov = ComputeCoverageReward_Aggregated();
         float ene = ComputeEnergyReward();
-
         int overlap = Mathf.Max(0, _overconnectThisStep);
         float overlapPenalty = overlap * overlapPenaltyPerLink;
 
+        // --- 개인 보상 ---
         float stepR = qoe * cov * ene - overlapPenalty;
         AddReward(stepR);
 
+        // --- 그룹 보상(협력 항) ---
+        // QoE와 Coverage를 공유 성격으로 묶어 팀 전체 보상으로 전달
+        Manager?.AddSharedReward(0.5f * (qoe + cov));
+
         if (debugReward)
         {
-            Debug.Log($"[Agent {name}] QoE={qoe:F3}  Cov={cov:F3}  Ene={ene:F3}  Overlap={overlap}  " +
-                      $"pen_o={overlapPenalty:F3}  => stepR={stepR:F4}, cumR={GetCumulativeReward():F4}  " +
-                      $"num={_qoeNumeratorThisStep:F3} denom={totalWeightDenom:F1}");
+            Debug.Log($"[Agent {name}] stepR={stepR:F4}, cumR={GetCumulativeReward():F4}");
         }
 
         _qoeNumeratorThisStep = 0f;
@@ -189,7 +185,6 @@ public class DroneAgent : Agent
         a[1] = (Input.GetKey(KeyCode.E) ? 1f : 0f) + (Input.GetKey(KeyCode.Q) ? -1f : 0f);
     }
 
-    // ===== Reward terms =====
     float ComputeQoEReward_Aggregated()
     {
         float qoe = _qoeNumeratorThisStep / Mathf.Max(eps, totalWeightDenom);
@@ -218,7 +213,8 @@ public class DroneAgent : Agent
         if (!IsObstacle(other.collider)) return;
 
         AddReward(collisionPenalty);
-        if (endOnCollision) EndEpisode();
+        Manager?.AddSharedReward(collisionPenalty); // 팀도 손해
+        if (endOnCollision) Manager?.EndGroupEpisode();
     }
 
     void OnTriggerEnter(Collider other)
@@ -226,7 +222,8 @@ public class DroneAgent : Agent
         if (!IsObstacle(other)) return;
 
         AddReward(collisionPenalty);
-        if (endOnCollision) EndEpisode();
+        Manager?.AddSharedReward(collisionPenalty);
+        if (endOnCollision) Manager?.EndGroupEpisode();
     }
 
     bool IsObstacle(Collider col)
@@ -239,14 +236,12 @@ public class DroneAgent : Agent
         }
         if (obstacleLayers.value != 0)
             return ((1 << col.gameObject.layer) & obstacleLayers.value) != 0;
-
         return true;
     }
 
     void FixedUpdate()
     {
         var p = transform.position;
-
         bool outX = (p.x < xMin) || (p.x > xMax);
         bool outZ = (p.z < zMin) || (p.z > zMax);
         bool outY = (p.y < yLimit.x) || (p.y > yLimit.y);
@@ -254,18 +249,8 @@ public class DroneAgent : Agent
         if (outX || outZ || outY)
         {
             AddReward(boundaryPenalty);
-            if (endOnBoundary) EndEpisode();
+            Manager?.AddSharedReward(boundaryPenalty);
+            if (endOnBoundary) Manager?.EndGroupEpisode();
         }
     }
-
-#if UNITY_EDITOR
-    void OnDrawGizmosSelected()
-    {
-        float y = (Application.isPlaying ? transform.position.y : 50f);
-        Vector3 center = new Vector3((xMin + xMax) * 0.5f, y, (zMin + zMax) * 0.5f);
-        Vector3 size   = new Vector3(Mathf.Abs(xMax - xMin), 0.1f, Mathf.Abs(zMax - zMin));
-        Gizmos.color = Color.yellow;
-        Gizmos.DrawWireCube(center, size);
-    }
-#endif
 }
