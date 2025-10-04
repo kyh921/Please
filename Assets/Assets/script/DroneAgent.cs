@@ -120,7 +120,7 @@ public class DroneAgent : Agent
         float P_hover = PowerHoverW();
         float P = (V <= hoverSpeedEps)
             ? P_hover
-            : Mathf.Max(P_hover * 2.00f, PowerForwardW(V));
+            : Mathf.Max(P_hover * 1.10f, PowerForwardW(V));
 
         float usedWh = energyDrainScale * Mathf.Max(0f, P) * dt / 3600f;  // μ(t) [Wh]
         energyWh = Mathf.Max(0f, energyWh - usedWh);
