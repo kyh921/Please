@@ -120,6 +120,8 @@ public class RadioLinkModel : MonoBehaviour
     /// <summary>
     /// 모든 송신기-수신기 쌍에 대해 안테나 이득 계산
     /// </summary>
+    /// 
+  
     public double[,] GetAllTxAntennaGains(double[,] angles)
     {
         int txCount = angles.GetLength(0);
