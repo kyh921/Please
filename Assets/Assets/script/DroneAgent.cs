@@ -10,7 +10,7 @@ public class DroneAgent : Agent
 {
     private Rigidbody _rb;
     int stepCount;
-    // ===== 이동 제어 =====
+    // ===== �대룞 �쒖뼱 =====
     public float yawCmdDegPerSec = 0f;
     private DroneController ctrl;
 
@@ -19,17 +19,17 @@ public class DroneAgent : Agent
     private Vector3 prevPos;
     public float LastStepDistance { get; private set; }
 
-    // ===== QoE 보상 =====
+    // ===== QoE 蹂댁긽 =====
     [Header("QoE reward")]
-    [Tooltip("분모 = Σ(전체 건물 가중치). 에피소드 시작 시 계산")]
+    [Tooltip("遺꾨え = 誇(�꾩껜 嫄대Ъ 媛�以묒튂). �먰뵾�뚮뱶 �쒖옉 �� 怨꾩궛")]
     public float totalWeightDenom = 1f;
 
-    [Tooltip("보상 안정화를 위한 작은 값")]
+    [Tooltip("蹂댁긽 �덉젙�붾� �꾪븳 �묒� 媛�")]
     public float eps = 1e-6f;
 
-    // 집계 입력(프레임당)
-    private float _qoeNumeratorThisStep = 0f; // 내 드론의 Σ(A_l × UE가중치)
-    private int   _overconnectThisStep   = 0; // 유효 링크 수 - 1
+    // 吏묎퀎 �낅젰(�꾨젅�꾨떦)
+    private float _qoeNumeratorThisStep = 0f; // �� �쒕줎�� 誇(A_l 횞 UE媛�以묒튂)
+    private int   _overconnectThisStep   = 0; // �좏슚 留곹겕 �� - 1
 
     public void BeginStepAggregation()
     {
@@ -43,11 +43,11 @@ public class DroneAgent : Agent
         _overconnectThisStep   = Mathf.Max(_overconnectThisStep, Mathf.Max(0, overconnect));
     }
 
-    // ===== 에너지 모델 (Table III) =====
+    // ===== �먮꼫吏� 紐⑤뜽 (Table III) =====
 
     // --- Battery state (Q(t), Wh) ---
-    private float energyWhInit;   // 초기 충전량(Wh), 에피소드 시작 시 계산
-    private float energyWh;       // 현재 잔량 Q(t) (Wh)
+    private float energyWhInit;   // 珥덇린 異⑹쟾��(Wh), �먰뵾�뚮뱶 �쒖옉 �� 怨꾩궛
+    private float energyWh;       // �꾩옱 �붾웾 Q(t) (Wh)
 
 
     [Header("Energy model (Table III)")]
@@ -94,39 +94,40 @@ public class DroneAgent : Agent
         return profile + induced + parasite;
     }
 
-    // 논문 식(12): Q(t+1) = max{0, Q(t) - μ(t)}
-    // 여기서 μ(t)는 전력[W] * Δt[s] / 3600 = Wh 로 환산
+    // �쇰Ц ��(12): Q(t+1) = max{0, Q(t) - 關(t)}
+    // �ш린�� 關(t)�� �꾨젰[W] * �t[s] / 3600 = Wh 濡� �섏궛
     void UpdateEnergyQueueByPaperModel()
     {
-        // Δt: FixedUpdate와 OnActionReceived 혼용 대비
+        // �t: FixedUpdate�� OnActionReceived �쇱슜 ��鍮�
         float dt = Time.inFixedTimeStep ? Time.fixedDeltaTime : Time.deltaTime;
         dt = Mathf.Max(dt, 1e-4f);
 
-        // 3D 속도: Rigidbody가 있으면 그것을 신뢰, 없으면 위치 변화로 추정
+        // 3D �띾룄: Rigidbody媛� �덉쑝硫� 洹멸쾬�� �좊ː, �놁쑝硫� �꾩튂 蹂��붾줈 異붿젙
         float V;
         if (_rb != null)
             V = _rb.velocity.magnitude;
         else
             V = (transform.position - prevPos).magnitude / dt;
 
-        // hover/forward 분류만 정확히 (hoverSpeedEps=0.2 유지)
+        // hover/forward 遺꾨쪟留� �뺥솗�� (hoverSpeedEps=0.2 �좎�)
         float P_hover = PowerHoverW();
         float P = (V <= hoverSpeedEps)
             ? P_hover
             : Mathf.Max(P_hover * 2.00f, PowerForwardW(V));
 
-        float usedWh = Mathf.Max(0f, P) * dt / 3600f;  // μ(t) [Wh]
+        float usedWh = Mathf.Max(0f, P) * dt / 3600f;  // 關(t) [Wh]
         energyWh = Mathf.Max(0f, energyWh - usedWh);
     }
 
-    // ===== 충돌 & 경계 =====
+    // ===== 異⑸룎 & 寃쎄퀎 =====
     [Header("Collision & Boundary")]
     public float collisionPenalty = -0.5f;
     public bool endOnCollision = true;
 
-    [Tooltip("작업영역 X 최소/최대, Z 최소/최대 (비대칭 지원)")]
-    public float xMin = -623f, xMax = 44f;
-    public float zMin = -531f, zMax = -2.5f;
+    // ---------- 작업영역(경계) ----------
+    [Tooltip("작업영역 X 최소/최대, Z 최소/최대 (드론은 이 범위를 벗어나면 패널티/종료)")]
+    public float xMin = -620f, xMax = 60f;
+    public float zMin = -540f, zMax = 550f;
 
     [Tooltip("허용 고도 범위 (min,max)")]
     public Vector2 yLimit  = new Vector2(20f, 150f);
@@ -134,11 +135,19 @@ public class DroneAgent : Agent
     public float boundaryPenalty = -0.2f;
     public bool endOnBoundary = true;
 
-    [Tooltip("커버리지 중복(오버커넥트) 1단위당 추가 패널티")]
+    [Tooltip("而ㅻ쾭由ъ� 以묐났(�ㅻ쾭而ㅻ꽖��) 1�⑥쐞�� 異붽� �⑤꼸��")]
     public float overlapPenaltyPerLink = 0.05f;
 
     public LayerMask obstacleLayers;
     public string[] obstacleTags = new string[] { "Drone", "Obstacle", "Building" };
+
+    // ---------- 스폰 범위(에피소드 시작 시 위치 뽑기) ----------
+    [Header("Spawn Range (per episode)")]
+    [Tooltip("OnEpisodeBegin에서 사용할 스폰 범위 X")]
+    public float spawnXMin = -65f, spawnXMax = 43f;
+
+    [Tooltip("OnEpisodeBegin에서 사용할 스폰 범위 Z")]
+    public float spawnZMin = -13f, spawnZMax = 125f;
 
     // ===== Unity lifecycle =====
     void Awake()
@@ -153,8 +162,10 @@ public class DroneAgent : Agent
     {
         energyWhInit = (batteryVolt * battery_mAh) / 1000f;
         energyWh = energyWhInit;
-        float rx = Random.Range(xMin, xMax);
-        float rz = Random.Range(zMin, zMax);
+
+        // 스폰 범위 사용 (요청 반영)
+        float rx = Random.Range(spawnXMin, spawnXMax);
+        float rz = Random.Range(spawnZMin, spawnZMax);
         float ry = Random.Range(yLimit.x, yLimit.y);
         transform.position = new Vector3(rx, ry, rz);
         transform.rotation = Quaternion.Euler(0f, Random.Range(0f, 360f), 0f);
@@ -206,10 +217,8 @@ public class DroneAgent : Agent
         float stepR = qoe * cov * ene - overlapPenalty;
         AddReward(stepR);
 
-
-        // 0 보상은 출력 생략, 필요하면 N스텝마다만 출력(옵션)
-        const int LOG_EVERY_N_STEPS = 0; // 0이면 주기적 로그 비활성화. 20 등으로 바꾸면 20스텝마다 찍음.
-        stepCount++; // 클래스 필드로 int stepCount; 하나 추가해두세요.
+        const int LOG_EVERY_N_STEPS = 0; 
+        stepCount++; 
 
         if (debugReward)
         {
@@ -219,8 +228,8 @@ public class DroneAgent : Agent
             if (nonZeroReward || periodic)
             {
                 Debug.Log(
-                    $"[Agent {gameObject.name}] QoE={qoe:F3}  Cov={cov:F3}  Ene={ene:F3}  Overlap={overlap}  pen_o={overlapPenalty:F3} " +
-                    $"=> stepR={stepR:F4} num={_qoeNumeratorThisStep:F3} denom={totalWeightDenom:F1} batt={(energyWhInit > 0 ? (energyWh / energyWhInit * 100f) : 0f):F2} %"
+                    $"[Agent {gameObject.name}] QoE={{qoe:F3}}  Cov={{cov:F3}}  Ene={{ene:F3}}  Overlap={overlap}  pen_o={{overlapPenalty:F3}} " +
+                    $"=> stepR={{stepR:F4}} num={{_qoeNumeratorThisStep:F3}} denom={{totalWeightDenom:F1}} batt={{(energyWhInit > 0 ? (energyWh / energyWhInit * 100f) : 0f):F2}} %"
                 );
             }
         }
@@ -256,7 +265,7 @@ public class DroneAgent : Agent
         return rem;
     }
 
-    // ===== 충돌 & 경계 처리 =====
+    // ===== 異⑸룎 & 寃쎄퀎 泥섎━ =====
     void OnCollisionEnter(Collision other)
     {
         if (!IsObstacle(other.collider)) return;
@@ -291,6 +300,7 @@ public class DroneAgent : Agent
     {
         var p = transform.position;
 
+        // 작업영역(경계) 체크
         bool outX = (p.x < xMin) || (p.x > xMax);
         bool outZ = (p.z < zMin) || (p.z > zMax);
         bool outY = (p.y < yLimit.x) || (p.y > yLimit.y);
@@ -306,10 +316,18 @@ public class DroneAgent : Agent
     void OnDrawGizmosSelected()
     {
         float y = (Application.isPlaying ? transform.position.y : 50f);
-        Vector3 center = new Vector3((xMin + xMax) * 0.5f, y, (zMin + zMax) * 0.5f);
-        Vector3 size   = new Vector3(Mathf.Abs(xMax - xMin), 0.1f, Mathf.Abs(zMax - zMin));
+
+        // 작업영역(경계) - 노란색
+        Vector3 boundaryCenter = new Vector3((xMin + xMax) * 0.5f, y, (zMin + zMax) * 0.5f);
+        Vector3 boundarySize   = new Vector3(Mathf.Abs(xMax - xMin), 0.1f, Mathf.Abs(zMax - zMin));
         Gizmos.color = Color.yellow;
-        Gizmos.DrawWireCube(center, size);
+        Gizmos.DrawWireCube(boundaryCenter, boundarySize);
+
+        // 스폰 영역 - 청록색
+        Vector3 spawnCenter = new Vector3((spawnXMin + spawnXMax) * 0.5f, y, (spawnZMin + spawnZMax) * 0.5f);
+        Vector3 spawnSize   = new Vector3(Mathf.Abs(spawnXMax - spawnXMin), 0.1f, Mathf.Abs(spawnZMax - spawnZMin));
+        Gizmos.color = Color.cyan;
+        Gizmos.DrawWireCube(spawnCenter, spawnSize);
     }
 #endif
 }
