@@ -11,7 +11,7 @@ public enum ReceiverMetric
 [DisallowMultipleComponent]
 public class RadioReceiver : MonoBehaviour
 {
-    // ===== Static registry (옵션: 씬에서 UE 빠르게 모으기) =====
+    // ===== Static registry (占쎈벊��: 占싼딅퓠占쏙옙 UE ��쥓�ㅵ칰占� 筌뤴뫁�앮묾占�) =====
     static readonly HashSet<RadioReceiver> s_all = new HashSet<RadioReceiver>();
     public static IReadOnlyCollection<RadioReceiver> All => s_all;
     public bool debugLog = false;
@@ -21,20 +21,20 @@ public class RadioReceiver : MonoBehaviour
     public int NodeId => _nodeId;
 
     [Header("Threshold (dB)")]
-    [Tooltip("이 값 이상일 때 '연결'로 간주 (overconnect 계산에 사용)")]
-    public float rxThresholdSinrDb = 0f; // 기본: 0 dB
+    [Tooltip("占쏙옙 揶쏉옙 占쎈똻湲쏙옙占� 占쏙옙 '占쎄퀗猿�'嚥∽옙 揶쏄쑴竊� (overconnect �④쑴沅쏉옙占� 占싼딆뒠)")]
+    public float rxThresholdSinrDb = 0f; // 疫꿸퀡��: 0 dB
 
     [Header("Metric Mode")]
-    [Tooltip("드론으로 넘길 지표 선택: A_l(Mbps) 또는 QoE=log(237*A_l-216.6)")]
+    [Tooltip("占쎌뮆以롳옙�곗쨮 占쎌꼵留� 筌욑옙占쏙옙 占쎌쥚源�: A_l(Mbps) 占쎈Ŧ�� QoE=log(237*A_l-216.6)")]
     public ReceiverMetric metric = ReceiverMetric.AlThroughputMbps;
 
     [Header("Runtime (readonly)")]
     public int recvPackets = 0;
 
-    // 수신 이벤트(시각화/깜빡임 등)
+    // 占쎌꼷�� 占쎈�源쏙옙占�(占쎌뮄而뽳옙占�/繹먯뮆臾�占쏙옙 占쏙옙)
     public event Action<int, byte[], float> OnReceive;  // (srcId, payload, sinrDb)
 
-    // --- 디버그 노출값 ---
+    // --- 占쎈뗀苡�뉩占� 占쎈챷�㎩첎占� ---
     public int LastCQI { get; private set; } = 0;
     public int LastQm { get; private set; } = 0;
     public int LastITbs { get; private set; } = -1;
@@ -45,7 +45,7 @@ public class RadioReceiver : MonoBehaviour
 
     DemandArea _area;
 
-    // ===== LTE CQI 임계 (SINR dB) =====
+    // ===== LTE CQI 占쎄쑨�� (SINR dB) =====
     static readonly float[] _cqiThresholdDb = {
         float.NegativeInfinity,
         -9.478f,-6.658f,-4.098f,-1.798f, 0.399f,
@@ -53,7 +53,7 @@ public class RadioReceiver : MonoBehaviour
         12.218f,14.122f,15.849f,17.786f,19.809f
     };
 
-    // CQI → (Qm, iTBS)
+    // CQI 占쏙옙 (Qm, iTBS)
     static readonly (int Qm, int iTbs)[] _cqiToQmItbs = new (int, int)[32] {
         (2,0),(2,1),(2,2),(2,3),(2,4),(2,5),(2,6),
         (2,7),(2,8),(2,9),
@@ -63,7 +63,7 @@ public class RadioReceiver : MonoBehaviour
         (2,-1),(4,-1),(6,-1) // 29~31 reserved
     };
 
-    // iTBS → TBS(bits) @ N_PRB=50 (iTBS=0..26)
+    // iTBS 占쏙옙 TBS(bits) @ N_PRB=50 (iTBS=0..26)
     [Header("TBS(bits) for N_PRB=50 (index=iTBS 0..26)")]
     [SerializeField]
     int[] TBS_bits_for_PRB50 = new int[27] {
@@ -73,10 +73,10 @@ public class RadioReceiver : MonoBehaviour
         /*20*/22920, /*21*/25456, /*22*/27376, /*23*/28336, /*24*/30576, /*25*/31704, /*26*/36696
     };
 
-    // === 프레임 집계: 드론ID별 누산 버킷 ===
-    // droneId -> Σ(metric * demand),  droneId -> 연결여부 카운트
+    // === 占쎄쑬�낉옙占� 筌욌쵌��: 占쎌뮆以랪D癰귨옙 占쎄쑴沅� 甕곌쑵沅� ===
+    // droneId -> 沃�(metric * demand),  droneId -> 占쎄퀗猿먲옙�占� 燁삳똻�ワ옙占�
     readonly Dictionary<int, float> _sumWeighted = new Dictionary<int, float>(64);
-    readonly HashSet<int> _connectedSrc = new HashSet<int>(); // 이 UE와 연결된 드론 집합
+    readonly HashSet<int> _connectedSrc = new HashSet<int>(); // 占쏙옙 UE占쏙옙 占쎄퀗猿먲옙占� 占쎌뮆以� 筌욌쵑鍮�
 
     void OnEnable()
     {
@@ -94,7 +94,7 @@ public class RadioReceiver : MonoBehaviour
 
     public void AcceptSinrFromModel(int srcId, float sinrDb, byte[] payload = null)
     {
-        // 1) SINR → CQI
+        // 1) SINR 占쏙옙 CQI
         int cqi = 0;
         for (int i = 15; i >= 1; --i)
         {
@@ -108,20 +108,20 @@ public class RadioReceiver : MonoBehaviour
 
         if (cqi > 0)
         {
-            // 2) CQI → (Qm, iTBS)
+            // 2) CQI 占쏙옙 (Qm, iTBS)
             (Qm, iTbs) = _cqiToQmItbs[cqi];
 
-            // 3) iTBS → TBS(bits) @ 1ms, N_PRB=50 → A_l
+            // 3) iTBS 占쏙옙 TBS(bits) @ 1ms, N_PRB=50 占쏙옙 A_l
             if ((uint)iTbs < (uint)TBS_bits_for_PRB50.Length)
             {
                 tbsBits = Mathf.Max(0, TBS_bits_for_PRB50[iTbs]);
-                Al_bps = tbsBits * 1000;        // 1ms 전송 → bps 환산
+                Al_bps = tbsBits * 1000;        // 1ms 占쎄쑴�� 占쏙옙 bps 占쎌꼷沅�
                 Al_Mbps = Al_bps / 1_000_000f;  // Mbps
-                QoE = Mathf.Log(Mathf.Max(1e-6f, 237f * Al_Mbps - 216.6f));
+                QoE = Mathf.Log(Mathf.Max(1e-6f, Al_Mbps - 1.0f));
             }
         }
 
-        // 디버그 저장
+        // 占쎈뗀苡�뉩占� 占쏙옙占쏙옙
         LastCQI = cqi; LastQm = Qm; LastITbs = iTbs; LastTbsBits = tbsBits; LastAl_bps = Al_bps; LastAl_Mbps = Al_Mbps; LastQoE = QoE;
 
         if (debugLog)
@@ -129,7 +129,7 @@ public class RadioReceiver : MonoBehaviour
             Debug.Log($"[UE {name}] src={srcId} SINR={sinrDb:F2} dB, CQI={cqi}, iTBS={iTbs}, A_l={Al_Mbps:F3} Mbps, QoE={QoE:F3}");
         }
 
-        // 4) 연결 판정 + 누산
+        // 4) 占쎄퀗猿� 占쎈Ŋ�� + 占쎄쑴沅�
         if (sinrDb >= rxThresholdSinrDb)
         {
             _connectedSrc.Add(srcId);
@@ -183,7 +183,7 @@ public class RadioReceiver : MonoBehaviour
     }
 
 #if UNITY_EDITOR
-    // 씬에서 선택 시 안테나 위치를 시각화 (디버깅 편의)
+    // 占싼딅퓠占쏙옙 占쎌쥚源� 占쏙옙 占쎈뜇�믭옙占� 占쎄쑴�귞몴占� 占쎌뮄而뽳옙占� (占쎈뗀苡�틦占� 占쎈챷��)
     void OnDrawGizmosSelected()
     {
         Vector3 p = GetAntennaPosition();
