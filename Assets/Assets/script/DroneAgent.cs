@@ -13,6 +13,20 @@ public class DroneAgent : Agent
     [SerializeField] bool drainBySteps = true;          // true면 스텝 기반
     [SerializeField] float secondsPerStepForEnergy = 0.02f; // 1 스텝을 몇 초로 간주할지(예: fixedDeltaTime)
 
+    // ===== Elimination (multi-agent async) =====
+    [Header("Elimination (no instant respawn)")]
+    [Tooltip("충돌/경계 위반 시 즉시 리스폰 대신 해당 드론만 제외하고 나머지는 계속 학습")]
+    public bool eliminateOnFail = true;
+    [Tooltip("제외 시 Rigidbody를 고정(중력/속도 정지)")]
+    public bool freezeRigidbodyOnElim = true;
+    [Tooltip("제외 시 Collider를 꺼서 추가 충돌 방지")]
+    public bool disableColliderOnElim = true;
+    [Tooltip("제외 시 시각/센서/컨트롤러 비활성화")]
+    public bool disableControllerAndSensorOnElim = true;
+
+    private bool _isEliminated = false;
+    private Collider[] _allColliders;
+    private Renderer[] _allRenderers;
 
     private Rigidbody _rb;
     int stepCount;
@@ -54,7 +68,6 @@ public class DroneAgent : Agent
     // --- Battery state (Q(t), Wh) ---
     private float energyWhInit;   // 초기 충전량(Wh), 에피소드 시작 시 계산
     private float energyWh;       // 현재 잔량 Q(t) (Wh)
-
 
     [Header("Energy model (Table III)")]
     public float rho = 1.225f;
@@ -104,10 +117,12 @@ public class DroneAgent : Agent
     // 여기서 μ(t)는 전력[W] * Δt[s] / 3600 = Wh 로 환산
     void UpdateEnergyQueueByPaperModel()
     {
+        if (_isEliminated) return; // 제외된 드론은 배터리 더 이상 소모하지 않음
+
         // Δt: FixedUpdate와 OnActionReceived 혼용 대비
         float dt = drainBySteps
-    ? Mathf.Max(secondsPerStepForEnergy, 1e-4f)     // 스텝 고정
-    : (Time.inFixedTimeStep ? Time.fixedDeltaTime : Time.deltaTime);
+            ? Mathf.Max(secondsPerStepForEnergy, 1e-4f)     // 스텝 고정
+            : (Time.inFixedTimeStep ? Time.fixedDeltaTime : Time.deltaTime);
 
         // 3D 속도: Rigidbody가 있으면 그것을 신뢰, 없으면 위치 변화로 추정
         float V;
@@ -147,6 +162,14 @@ public class DroneAgent : Agent
     public LayerMask obstacleLayers;
     public string[] obstacleTags = new string[] { "Drone", "Obstacle", "Building" };
 
+    // ====== 스폰 범위 (요청 기능 추가) ======
+    [Header("Spawn Range (per episode)")]
+    [Tooltip("OnEpisodeBegin에서 사용할 스폰 범위 X")]
+    public float spawnXMin = 180f, spawnXMax = 270f;
+
+    [Tooltip("OnEpisodeBegin에서 사용할 스폰 범위 Z")]
+    public float spawnZMin = -540f, spawnZMax = -440f;
+
     // ===== Unity lifecycle =====
     void Awake()
     {
@@ -154,14 +177,20 @@ public class DroneAgent : Agent
         if (sensor == null) sensor = GetComponentInChildren<RadioReceiver>();
         _rb = GetComponent<Rigidbody>();
         prevPos = transform.position;
+
+        _allColliders = GetComponentsInChildren<Collider>(includeInactive: true);
+        _allRenderers = GetComponentsInChildren<Renderer>(includeInactive: true);
     }
 
     public override void OnEpisodeBegin()
     {
+        // 에피소드 시작 시에만 완충
         energyWhInit = (batteryVolt * battery_mAh) / 1000f;
         energyWh = energyWhInit;
-        float rx = Random.Range(xMin, xMax);
-        float rz = Random.Range(zMin, zMax);
+
+        // == 스폰 범위 사용 ==
+        float rx = Random.Range(spawnXMin, spawnXMax);
+        float rz = Random.Range(spawnZMin, spawnZMax);
         float ry = Random.Range(yLimit.x, yLimit.y);
         transform.position = new Vector3(rx, ry, rz);
         transform.rotation = Quaternion.Euler(0f, Random.Range(0f, 360f), 0f);
@@ -177,6 +206,9 @@ public class DroneAgent : Agent
 
         _qoeNumeratorThisStep = 0f;
         _overconnectThisStep  = 0;
+
+        // 제외 상태 초기화 및 재활성화
+        RecoverFromElimination();
     }
 
     public override void CollectObservations(VectorSensor s)
@@ -193,6 +225,12 @@ public class DroneAgent : Agent
 
     public override void OnActionReceived(ActionBuffers actions)
     {
+        if (_isEliminated)
+        {
+            // 제외된 동안에는 행동/보상/배터리 소모 없음 (환경은 계속 진행)
+            return;
+        }
+
         var a = actions.ContinuousActions;
         Vector3 cmdLocal = new Vector3(a[0], a[1], a[2]);
         ctrl.SetCommand(new Vector3(cmdLocal.x * ctrl.maxHorizontalSpeed,
@@ -213,10 +251,8 @@ public class DroneAgent : Agent
         float stepR = qoe * cov * ene - overlapPenalty;
         AddReward(stepR);
 
-
-        // 0 보상은 출력 생략, 필요하면 N스텝마다만 출력(옵션)
-        const int LOG_EVERY_N_STEPS = 0; // 0이면 주기적 로그 비활성화. 20 등으로 바꾸면 20스텝마다 찍음.
-        stepCount++; // 클래스 필드로 int stepCount; 하나 추가해두세요.
+        const int LOG_EVERY_N_STEPS = 0;
+        stepCount++;
 
         if (debugReward)
         {
@@ -269,7 +305,15 @@ public class DroneAgent : Agent
         if (!IsObstacle(other.collider)) return;
 
         AddReward(collisionPenalty);
-        if (endOnCollision) EndEpisode();
+
+        if (eliminateOnFail)
+        {
+            Eliminate("collision");
+        }
+        else if (endOnCollision)
+        {
+            EndEpisode();
+        }
     }
 
     void OnTriggerEnter(Collider other)
@@ -277,7 +321,15 @@ public class DroneAgent : Agent
         if (!IsObstacle(other)) return;
 
         AddReward(collisionPenalty);
-        if (endOnCollision) EndEpisode();
+
+        if (eliminateOnFail)
+        {
+            Eliminate("trigger");
+        }
+        else if (endOnCollision)
+        {
+            EndEpisode();
+        }
     }
 
     bool IsObstacle(Collider col)
@@ -296,6 +348,8 @@ public class DroneAgent : Agent
 
     void FixedUpdate()
     {
+        if (_isEliminated) return;
+
         var p = transform.position;
 
         bool outX = (p.x < xMin) || (p.x > xMax);
@@ -305,7 +359,77 @@ public class DroneAgent : Agent
         if (outX || outZ || outY)
         {
             AddReward(boundaryPenalty);
-            if (endOnBoundary) EndEpisode();
+
+            if (eliminateOnFail)
+            {
+                Eliminate("boundary");
+            }
+            else if (endOnBoundary)
+            {
+                EndEpisode();
+            }
+        }
+    }
+
+    // ===== Elimination helpers =====
+    void Eliminate(string reason)
+    {
+        if (_isEliminated) return;
+        _isEliminated = true;
+
+        // 움직임/제어 정지
+        if (disableControllerAndSensorOnElim)
+        {
+            if (ctrl != null) ctrl.enabled = false;
+            if (sensor != null) sensor.enabled = false;
+        }
+
+        if (freezeRigidbodyOnElim && _rb != null)
+        {
+            _rb.velocity = Vector3.zero;
+            _rb.angularVelocity = Vector3.zero;
+            _rb.isKinematic = true;
+            _rb.useGravity = false;
+        }
+
+        if (disableColliderOnElim && _allColliders != null)
+        {
+            foreach (var c in _allColliders) if (c) c.enabled = false;
+        }
+
+        // 시각적으로 흐리게 처리(선택)
+        if (_allRenderers != null)
+        {
+            foreach (var r in _allRenderers) if (r) r.enabled = r.enabled; // 그대로 두되 필요 시 토글 가능
+        }
+
+        // 즉시 리스폰/에피소드 종료 없음 → 다른 드론은 계속 진행
+        // 배터리도 여기서 재충전하지 않음(에피소드 재시작 시에만 완충)
+        // 필요 시 위치를 살짝 아래로 내려 대기 공간에 두고 싶다면 다음 한 줄 사용:
+        // transform.position += new Vector3(0f, -5f, 0f);
+    }
+
+    void RecoverFromElimination()
+    {
+        _isEliminated = false;
+
+        if (disableControllerAndSensorOnElim)
+        {
+            if (ctrl != null) ctrl.enabled = true;
+            if (sensor != null) sensor.enabled = true;
+        }
+
+        if (freezeRigidbodyOnElim && _rb != null)
+        {
+            _rb.isKinematic = false;
+            _rb.useGravity = true;
+            _rb.velocity = Vector3.zero;
+            _rb.angularVelocity = Vector3.zero;
+        }
+
+        if (disableColliderOnElim && _allColliders != null)
+        {
+            foreach (var c in _allColliders) if (c) c.enabled = true;
         }
     }
 
@@ -313,10 +437,28 @@ public class DroneAgent : Agent
     void OnDrawGizmosSelected()
     {
         float y = (Application.isPlaying ? transform.position.y : 50f);
+
+        // 작업영역(노란색)
         Vector3 center = new Vector3((xMin + xMax) * 0.5f, y, (zMin + zMax) * 0.5f);
         Vector3 size   = new Vector3(Mathf.Abs(xMax - xMin), 0.1f, Mathf.Abs(zMax - zMin));
         Gizmos.color = Color.yellow;
         Gizmos.DrawWireCube(center, size);
+
+        // 스폰 영역(청록색)
+        Vector3 spawnCenter = new Vector3((spawnXMin + spawnXMax) * 0.5f, y, (spawnZMin + spawnZMax) * 0.5f);
+        Vector3 spawnSize   = new Vector3(Mathf.Abs(spawnXMax - spawnXMin), 0.1f, Mathf.Abs(spawnZMax - spawnZMin));
+        Gizmos.color = Color.cyan;
+        Gizmos.DrawWireCube(spawnCenter, spawnSize);
+
+        // 제외 상태 표시(빨간 X)
+        if (_isEliminated)
+        {
+            Gizmos.color = Color.red;
+            Vector3 p = Application.isPlaying ? transform.position : Vector3.zero;
+            float s = 5f;
+            Gizmos.DrawLine(p + new Vector3(-s, 0, -s), p + new Vector3(s, 0, s));
+            Gizmos.DrawLine(p + new Vector3(-s, 0, s),  p + new Vector3(s, 0, -s));
+        }
     }
 #endif
 }
