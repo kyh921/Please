@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using UnityEngine;
+[DefaultExecutionOrder(-200)]
 
 [DisallowMultipleComponent]
 public class RadioLinkRuntime : MonoBehaviour
