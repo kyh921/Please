@@ -2,22 +2,22 @@
     "DronePoca": {
         "checkpoints": [
             {
-                "steps": 79643,
-                "file_path": "results\\test02\\DronePoca\\DronePoca-79643.onnx",
-                "reward": 178.2425939249806,
-                "creation_time": 1759567616.983769,
+                "steps": 420389,
+                "file_path": "results\\test02\\DronePoca\\DronePoca-420389.onnx",
+                "reward": -12.147674519723902,
+                "creation_time": 1759580488.4797134,
                 "auxillary_file_paths": [
-                    "results\\test02\\DronePoca\\DronePoca-79643.pt"
+                    "results\\test02\\DronePoca\\DronePoca-420389.pt"
                 ]
             }
         ],
         "final_checkpoint": {
-            "steps": 79643,
+            "steps": 420389,
             "file_path": "results\\test02\\DronePoca.onnx",
-            "reward": 178.2425939249806,
-            "creation_time": 1759567616.983769,
+            "reward": -12.147674519723902,
+            "creation_time": 1759580488.4797134,
             "auxillary_file_paths": [
-                "results\\test02\\DronePoca\\DronePoca-79643.pt"
+                "results\\test02\\DronePoca\\DronePoca-420389.pt"
             ]
         }
     },

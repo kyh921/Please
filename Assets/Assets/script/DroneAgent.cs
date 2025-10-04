@@ -192,7 +192,7 @@ public class DroneAgent : Agent
     // ===== Reward terms =====
     float ComputeQoEReward_Aggregated()
     {
-        float qoe = _qoeNumeratorThisStep / Mathf.Max(eps, totalWeightDenom);
+        float qoe = _qoeNumeratorThisStep / (totalWeightDenom * 5.0f) ;
         return Mathf.Clamp01(qoe);
     }
 
