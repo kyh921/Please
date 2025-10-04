@@ -12,8 +12,8 @@ public class DroneController : MonoBehaviour
     [Header("Flight Envelope")]
     public float minAltitude = 10f;
     public float maxAltitude = 200f;
-    public Vector2 xBounds = new Vector2(-500f, 500f);
-    public Vector2 zBounds = new Vector2(-500f, 500f);
+    public Vector2 xBounds = new Vector2(-1500f, 1500f);
+    public Vector2 zBounds = new Vector2(-1500f, 1500f);
 
     Rigidbody rb;
     Vector3 desiredVelLocal;   // (forward, right, up) in local frame
