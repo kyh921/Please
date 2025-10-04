@@ -15,7 +15,7 @@ public class DroneAgent : Agent
 
     // ===== Elimination (multi-agent async) =====
     [Header("Elimination (no instant respawn)")]
-    [Tooltip("충돌/경계 위반 시 즉시 리스폰 대신 해당 드론만 제외하고 나머지는 계속 학습")]
+    [Tooltip("충돌/경계/배터리 0 시 즉시 리스폰 대신 해당 드론만 제외하고 나머지는 계속 학습")]
     public bool eliminateOnFail = true;
     [Tooltip("제외 시 Rigidbody를 고정(중력/속도 정지)")]
     public bool freezeRigidbodyOnElim = true;
@@ -27,6 +27,12 @@ public class DroneAgent : Agent
     private bool _isEliminated = false;
     private Collider[] _allColliders;
     private Renderer[] _allRenderers;
+
+    // ===== Episode step limit (per-agent) =====
+    [Header("Per-Agent Episode")]
+    [Tooltip("이 에이전트의 에피소드 최대 스텝(도달 시 이 에이전트만 EndEpisode)")]
+    public int episodeMaxSteps = 5000;
+    private int episodeStep = 0;
 
     private Rigidbody _rb;
     int stepCount;
@@ -139,6 +145,12 @@ public class DroneAgent : Agent
 
         float usedWh = energyDrainScale * Mathf.Max(0f, P) * dt / 3600f;  // μ(t) [Wh]
         energyWh = Mathf.Max(0f, energyWh - usedWh);
+
+        // ★ 배터리 0이면 그 드론만 탈락
+        if (energyWh <= 0f && eliminateOnFail)
+        {
+            Eliminate("battery");
+        }
     }
 
     // ===== 충돌 & 경계 =====
@@ -162,7 +174,7 @@ public class DroneAgent : Agent
     public LayerMask obstacleLayers;
     public string[] obstacleTags = new string[] { "Drone", "Obstacle", "Building" };
 
-    // ====== 스폰 범위 (요청 기능 추가) ======
+    // ====== 스폰 범위 ======
     [Header("Spawn Range (per episode)")]
     [Tooltip("OnEpisodeBegin에서 사용할 스폰 범위 X")]
     public float spawnXMin = 180f, spawnXMax = 270f;
@@ -209,6 +221,9 @@ public class DroneAgent : Agent
 
         // 제외 상태 초기화 및 재활성화
         RecoverFromElimination();
+
+        // 에피소드 스텝 카운터 리셋 (이 에이전트 전용)
+        episodeStep = 0;
     }
 
     public override void CollectObservations(VectorSensor s)
@@ -227,7 +242,7 @@ public class DroneAgent : Agent
     {
         if (_isEliminated)
         {
-            // 제외된 동안에는 행동/보상/배터리 소모 없음 (환경은 계속 진행)
+            // 제외된 동안에는 행동/보상/배터리 소모 없음
             return;
         }
 
@@ -348,6 +363,14 @@ public class DroneAgent : Agent
 
     void FixedUpdate()
     {
+        // 에피소드 스텝 카운트는 제외 상태와 관계없이 증가 (비동기 종료 트리거용)
+        episodeStep++;
+        if (episodeStep >= episodeMaxSteps)
+        {
+            EndEpisode();   // 이 에이전트만 리셋 (다른 드론은 계속)
+            return;
+        }
+
         if (_isEliminated) return;
 
         var p = transform.position;
@@ -396,17 +419,7 @@ public class DroneAgent : Agent
         {
             foreach (var c in _allColliders) if (c) c.enabled = false;
         }
-
-        // 시각적으로 흐리게 처리(선택)
-        if (_allRenderers != null)
-        {
-            foreach (var r in _allRenderers) if (r) r.enabled = r.enabled; // 그대로 두되 필요 시 토글 가능
-        }
-
-        // 즉시 리스폰/에피소드 종료 없음 → 다른 드론은 계속 진행
-        // 배터리도 여기서 재충전하지 않음(에피소드 재시작 시에만 완충)
-        // 필요 시 위치를 살짝 아래로 내려 대기 공간에 두고 싶다면 다음 한 줄 사용:
-        // transform.position += new Vector3(0f, -5f, 0f);
+        // 시각 효과는 기존 유지 (필요 시 토글 가능)
     }
 
     void RecoverFromElimination()
