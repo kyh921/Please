@@ -7,7 +7,13 @@ using Unity.MLAgents.Sensors;
 
 [RequireComponent(typeof(DroneController))]
 public class DroneAgent : Agent
-{
+{   
+    [Header("Energy scaling")]
+    [SerializeField] float energyDrainScale = 5f;   // 1보다 크면 더 빨리 닳음 (예: 3f)
+    [SerializeField] bool drainBySteps = true;          // true면 스텝 기반
+    [SerializeField] float secondsPerStepForEnergy = 0.02f; // 1 스텝을 몇 초로 간주할지(예: fixedDeltaTime)
+
+
     private Rigidbody _rb;
     int stepCount;
     // ===== 이동 제어 =====
@@ -99,8 +105,9 @@ public class DroneAgent : Agent
     void UpdateEnergyQueueByPaperModel()
     {
         // Δt: FixedUpdate와 OnActionReceived 혼용 대비
-        float dt = Time.inFixedTimeStep ? Time.fixedDeltaTime : Time.deltaTime;
-        dt = Mathf.Max(dt, 1e-4f);
+        float dt = drainBySteps
+    ? Mathf.Max(secondsPerStepForEnergy, 1e-4f)     // 스텝 고정
+    : (Time.inFixedTimeStep ? Time.fixedDeltaTime : Time.deltaTime);
 
         // 3D 속도: Rigidbody가 있으면 그것을 신뢰, 없으면 위치 변화로 추정
         float V;
@@ -115,7 +122,7 @@ public class DroneAgent : Agent
             ? P_hover
             : Mathf.Max(P_hover * 2.00f, PowerForwardW(V));
 
-        float usedWh = Mathf.Max(0f, P) * dt / 3600f;  // μ(t) [Wh]
+        float usedWh = energyDrainScale * Mathf.Max(0f, P) * dt / 3600f;  // μ(t) [Wh]
         energyWh = Mathf.Max(0f, energyWh - usedWh);
     }
 
