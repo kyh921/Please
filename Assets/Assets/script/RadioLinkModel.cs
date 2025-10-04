@@ -54,17 +54,7 @@ public class RadioLinkModel : MonoBehaviour
                 double h = Math.Sqrt(diff.x * diff.x + diff.z * diff.z);
                 angles[i, j] = Math.Atan2(h, Math.Max(1e-6, dy)); // rad
             }
-
-            int receiverIndex = 0;  // 리시버 1 (0-based)
-
-            for (int k = 0; k < txCount; k++) // i 대신 k 등 다른 이름 사용
-            {
-                if (receiverIndex < rxCount)
-                {
-                    double angleDeg = angles[k, receiverIndex] * (180 / Math.PI);
-                    Debug.Log($"tx[{k}]-rx[{receiverIndex}]: Angle = {angleDeg:F2} deg, Distance = {distances[k, receiverIndex]:F2} m");
-                }
-            }
+                                             
         }
     }
     /// <summary>

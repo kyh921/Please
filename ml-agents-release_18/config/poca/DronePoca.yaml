@@ -1,6 +1,6 @@
 behaviors:
   DronePoca:
-    trainer_type: poca
+    trainer_type: mapoca
     hyperparameters:
       batch_size: 2048
       buffer_size: 40960
