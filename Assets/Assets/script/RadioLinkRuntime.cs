@@ -72,16 +72,7 @@ public class RadioLinkRuntime : MonoBehaviour
         }
     }
 
-    static void CollectSceneObjects(List<DroneAgent> txOut, List<RadioReceiver> rxOut)
-    {
-        txOut.Clear(); rxOut.Clear();
-        txOut.AddRange(Object.FindObjectsOfType<DroneAgent>(true));
-
-        if (RadioReceiver.All != null)
-            rxOut.AddRange(RadioReceiver.All as IEnumerable<RadioReceiver>);
-        if (rxOut.Count == 0)
-            rxOut.AddRange(Object.FindObjectsOfType<RadioReceiver>(true));
-    }
+  
 
     static void EnsureCapacity(RadioLinkModel m, int txCount, int rxCount)
     {
@@ -90,4 +81,23 @@ public class RadioLinkRuntime : MonoBehaviour
         if (m.rxPositions == null) m.rxPositions = new List<Vector3>(rxCount);
         if (m.rxHeights == null) m.rxHeights = new List<float>(rxCount);
     }
+
+    static void CollectSceneObjects(List<DroneAgent> txOut, List<RadioReceiver> rxOut)
+    {
+        txOut.Clear(); rxOut.Clear();
+        var all = Object.FindObjectsOfType<DroneAgent>(true);
+        foreach (var a in all)
+        {
+            if (a == null) continue;
+            if (!a.isActiveAndEnabled) continue;
+            if (a.IsEliminated) continue;       // ★ 제외된 드론은 송신자에서 배제
+            txOut.Add(a);
+        }
+
+        if (RadioReceiver.All != null)
+            rxOut.AddRange(RadioReceiver.All as IEnumerable<RadioReceiver>);
+        if (rxOut.Count == 0)
+            rxOut.AddRange(Object.FindObjectsOfType<RadioReceiver>(true));
+    }
+
 }

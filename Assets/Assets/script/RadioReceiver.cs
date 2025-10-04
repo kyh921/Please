@@ -91,6 +91,11 @@ public class RadioReceiver : MonoBehaviour
         _connectedSrc.Clear();
     }
 
+    public void ForceDisconnect(int srcId)
+    {
+        _sumWeighted.Remove(srcId);
+        _connectedSrc.Remove(srcId);
+    }
     public void AcceptSinrFromModel(int srcId, float sinrDb, byte[] payload = null)
     {
         // 1) SINR 占쏙옙 CQI

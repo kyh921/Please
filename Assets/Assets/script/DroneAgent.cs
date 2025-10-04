@@ -57,6 +57,45 @@ public class DroneAgent : Agent
     private float _qoeNumeratorThisStep = 0f; // 내 드론의 Σ(A_l × UE가중치)
     private int   _overconnectThisStep   = 0; // 유효 링크 수 - 1
 
+    public bool IsEliminated => _isEliminated;  // 외부에서 조회
+
+    // DroneAgent.cs (도움 메서드 추가)
+    int GetSrcId() => gameObject.GetInstanceID();
+
+    // DroneAgent.cs (Eliminate 끝에 추가)
+    void Eliminate(string reason)
+    {
+        if (_isEliminated) return;
+        _isEliminated = true;
+
+        // 움직임/제어 정지
+        if (disableControllerAndSensorOnElim)
+        {
+            if (ctrl != null) ctrl.enabled = false;
+            if (sensor != null) sensor.enabled = false;
+        }
+
+        if (freezeRigidbodyOnElim && _rb != null)
+        {
+            _rb.velocity = Vector3.zero;
+            _rb.angularVelocity = Vector3.zero;
+            _rb.isKinematic = true;
+            _rb.useGravity = false;
+        }
+
+        if (disableColliderOnElim && _allColliders != null)
+        {
+            foreach (var c in _allColliders) if (c) c.enabled = false;
+        }
+
+        // ★ UE에서 이 드론 연결 강제 제거 (통신 완전 차단)
+        int src = gameObject.GetInstanceID();
+        foreach (var rr in RadioReceiver.All)
+        {
+            if (rr != null) rr.ForceDisconnect(src);
+        }
+    }
+
     public void BeginStepAggregation()
     {
         _qoeNumeratorThisStep = 0f;
@@ -360,7 +399,7 @@ public class DroneAgent : Agent
 
         return true;
     }
-
+ 
     void FixedUpdate()
     {
         // 에피소드 스텝 카운트는 제외 상태와 관계없이 증가 (비동기 종료 트리거용)
@@ -395,32 +434,7 @@ public class DroneAgent : Agent
     }
 
     // ===== Elimination helpers =====
-    void Eliminate(string reason)
-    {
-        if (_isEliminated) return;
-        _isEliminated = true;
-
-        // 움직임/제어 정지
-        if (disableControllerAndSensorOnElim)
-        {
-            if (ctrl != null) ctrl.enabled = false;
-            if (sensor != null) sensor.enabled = false;
-        }
-
-        if (freezeRigidbodyOnElim && _rb != null)
-        {
-            _rb.velocity = Vector3.zero;
-            _rb.angularVelocity = Vector3.zero;
-            _rb.isKinematic = true;
-            _rb.useGravity = false;
-        }
-
-        if (disableColliderOnElim && _allColliders != null)
-        {
-            foreach (var c in _allColliders) if (c) c.enabled = false;
-        }
-        // 시각 효과는 기존 유지 (필요 시 토글 가능)
-    }
+    
 
     void RecoverFromElimination()
     {
