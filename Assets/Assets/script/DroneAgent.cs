@@ -132,8 +132,8 @@ public class DroneAgent : Agent
     public bool endOnCollision = true;
 
     [Tooltip("작업영역 X 최소/최대, Z 최소/최대 (비대칭 지원)")]
-    public float xMin = -623f, xMax = 44f;
-    public float zMin = -531f, zMax = -2.5f;
+    public float xMin = -650f, xMax = 60f;
+    public float zMin = -1100f, zMax = -50f;
 
     [Tooltip("허용 고도 범위 (min,max)")]
     public Vector2 yLimit  = new Vector2(20f, 150f);
