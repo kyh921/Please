@@ -20,7 +20,7 @@ public class DemandArea : MonoBehaviour
 
     [Header("Exclusions")]
     [Tooltip("이 태그를 가진 Renderer는 색 변경에서 제외")]
-    public string excludeTag = "UEViz";
+     public string excludeTag = "UEViz";
 
     [Header("Auto Coverage")]
     [Tooltip("수신 이벤트가 오면 즉시 covered 처리")]
@@ -120,7 +120,7 @@ public class DemandArea : MonoBehaviour
         EnsureInit();
         if (rends == null || rends.Length == 0) return;
 
-        foreach (var r in rends)
+       foreach (var r in rends)
         {
             if (!r) continue;
 
