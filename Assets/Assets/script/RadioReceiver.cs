@@ -16,7 +16,6 @@ public class RadioReceiver : MonoBehaviour
     public static IReadOnlyCollection<RadioReceiver> All => s_all;
     public bool debugLog = false;
 
-
     [Header("Identity")]
     [SerializeField] private int _nodeId = 0;
     public int NodeId => _nodeId;
@@ -93,8 +92,6 @@ public class RadioReceiver : MonoBehaviour
         _connectedSrc.Clear();
     }
 
-    /// 링크모델이 계산한 SINR(dB) 주입 → A_l(Mbps) → (선택)QoE → demand 곱 → 누산
-    /// 연결 기준(sinr ≥ rxThresholdSinrDb) 충족 시만 누산 및 연결 집합 반영
     public void AcceptSinrFromModel(int srcId, float sinrDb, byte[] payload = null)
     {
         // 1) SINR → CQI
@@ -119,9 +116,8 @@ public class RadioReceiver : MonoBehaviour
             {
                 tbsBits = Mathf.Max(0, TBS_bits_for_PRB50[iTbs]);
                 Al_bps = tbsBits * 1000;        // 1ms 전송 → bps 환산
-                Al_Mbps = Al_bps / 1_000_000f;   // Mbps
-                // QoE 모델(옵션)
-                QoE = Mathf.Log(Mathf.Max(1e-6f, 237f * Al_Mbps - 216.6f)); // ln()
+                Al_Mbps = Al_bps / 1_000_000f;  // Mbps
+                QoE = Mathf.Log(Mathf.Max(1e-6f, 237f * Al_Mbps - 216.6f));
             }
         }
 
@@ -130,8 +126,7 @@ public class RadioReceiver : MonoBehaviour
 
         if (debugLog)
         {
-            Debug.Log($"[UE {name}] src={srcId} SINR={sinrDb:F2} dB, CQI={cqi}, iTBS={iTbs}, " +
-                      $"A_l={Al_Mbps:F3} Mbps, QoE={QoE:F3}");
+            Debug.Log($"[UE {name}] src={srcId} SINR={sinrDb:F2} dB, CQI={cqi}, iTBS={iTbs}, A_l={Al_Mbps:F3} Mbps, QoE={QoE:F3}");
         }
 
         // 4) 연결 판정 + 누산
@@ -145,12 +140,10 @@ public class RadioReceiver : MonoBehaviour
 
             if (debugLog)
             {
-                // prevTmp 라는 다른 이름으로 사용
                 float nowSum = (_sumWeighted.TryGetValue(srcId, out var prevTmp) ? prevTmp + weighted : weighted);
                 Debug.Log($"[UE {name}] CONNECT src={srcId} demand={demand}  addWeighted={weighted:F3}  nowSum={nowSum:F3}");
             }
 
-            // 여기서는 prevVal 로 사용 (prev 라는 이름 재사용 금지)
             if (_sumWeighted.TryGetValue(srcId, out float prevVal))
                 _sumWeighted[srcId] = prevVal + weighted;
             else
@@ -161,14 +154,9 @@ public class RadioReceiver : MonoBehaviour
         }
     }
 
-
-    /// 드론(srcId)이 이 UE에서 가져갈 값:
-    ///   sumWeighted = Σ( (A_l 또는 QoE) × demand )  (pop)
-    ///   overconnect = max(0, 연결드론수 - 1)  — srcId가 이 UE와 연결되어 있을 때만 반영
     public void PopQoeAndOverlapFor(int srcId, out float sumWeighted, out int overconnect)
     {
         _sumWeighted.TryGetValue(srcId, out sumWeighted);
-        // pop: 키 제거하여 누수/증식을 방지
         _sumWeighted.Remove(srcId);
 
         if (_connectedSrc.Contains(srcId))
@@ -182,7 +170,6 @@ public class RadioReceiver : MonoBehaviour
         }
     }
 
-    /// 프레임 경계에서 전체 리셋(여러 드론이 모두 Pop한 뒤 매니저/센서가 호출)
     public void ResetAggregation()
     {
         _sumWeighted.Clear();
@@ -193,4 +180,15 @@ public class RadioReceiver : MonoBehaviour
     {
         return transform.position;
     }
+
+#if UNITY_EDITOR
+    // 씬에서 선택 시 안테나 위치를 시각화 (디버깅 편의)
+    void OnDrawGizmosSelected()
+    {
+        Vector3 p = GetAntennaPosition();
+        Gizmos.color = Color.cyan;
+        Gizmos.DrawWireSphere(p, 0.6f);
+        Gizmos.DrawLine(transform.position, p);
+    }
+#endif
 }
