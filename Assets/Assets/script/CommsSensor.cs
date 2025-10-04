@@ -1,6 +1,7 @@
 using System.Collections.Generic;
 using UnityEngine;
 
+[DefaultExecutionOrder(+200)]
 [DisallowMultipleComponent]
 [RequireComponent(typeof(DroneAgent))]
 public class CommsSensor : MonoBehaviour
