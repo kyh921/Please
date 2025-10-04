@@ -4,9 +4,9 @@ using UnityEngine;
 public class DroneController : MonoBehaviour
 {
     [Header("Speed / Accel Limits")]
-    public float maxHorizontalSpeed = 15f;
-    public float maxClimbRate = 5f;         // m/s up/down
-    public float horizontalAccel = 30f;     // m/s^2
+    public float maxHorizontalSpeed = 100f;
+    public float maxClimbRate = 40f;         // m/s up/down
+    public float horizontalAccel = 40f;     // m/s^2
     public float yawRateDegPerSec = 120f;
 
     [Header("Flight Area (optional)")]

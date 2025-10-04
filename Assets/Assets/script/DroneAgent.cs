@@ -178,7 +178,7 @@ public class DroneAgent :
         a[2] = Input.GetAxis("Vertical");
         a[1] = (Input.GetKey(KeyCode.E) ? 1f : 0f) + (Input.GetKey(KeyCode.Q) ? -1f : 0f);
     }
-#else
+#endif
     void Update()
     {
         float strafe = Input.GetAxis("Horizontal");
@@ -201,7 +201,6 @@ public class DroneAgent :
         _qoeNumeratorThisStep = 0f;
         _overconnectThisStep = 0;
     }
-#endif
 
     // ===== Reward terms =====
 
