@@ -27,6 +27,11 @@ public class DroneAgent : Agent
     [Tooltip("보상 안정화를 위한 작은 값")]
     public float eps = 1e-6f;
 
+
+
+
+
+
     // 집계 입력(프레임당)
     private float _qoeNumeratorThisStep = 0f; // 내 드론의 Σ(A_l × UE가중치)
     private int   _overconnectThisStep   = 0; // 유효 링크 수 - 1
@@ -134,8 +139,8 @@ public class DroneAgent : Agent
     public float boundaryPenalty = -0.2f;
     public bool endOnBoundary = true;
 
-    [Tooltip("커버리지 중복(오버커넥트) 1단위당 추가 패널티")]
-    public float overlapPenaltyPerLink = 0.05f;
+    //[Tooltip("커버리지 중복(오버커넥트) 1단위당 추가 패널티")]
+   //public float overlapPenaltyPerLink = 0.05f;
 
     public LayerMask obstacleLayers;
     public string[] obstacleTags = new string[] { "Drone", "Obstacle", "Building" };
@@ -197,15 +202,21 @@ public class DroneAgent : Agent
         prevPos = transform.position;
         UpdateEnergyQueueByPaperModel();
         float qoe = ComputeQoEReward_Aggregated();
-        float cov = ComputeCoverageReward_Aggregated();
+        //float cov = ComputeCoverageReward_Aggregated();
         float ene = ComputeEnergyReward();
 
-        int overlap = Mathf.Max(0, _overconnectThisStep);
-        float overlapPenalty = overlap * overlapPenaltyPerLink;
+        //int overlap = Mathf.Max(0, _overconnectThisStep);
+        //float overlapPenalty = overlap * overlapPenaltyPerLink;
 
-        float stepR = qoe * cov * ene - overlapPenalty;
+        /*float stepR = qoe * ene;
         AddReward(stepR);
+        */
 
+        float indivReward = qoe * ene;
+
+        AddReward(indivReward);  // 개별 보상 추가 (POCA에서 그룹과 결합 처리)
+
+       
 
         // 0 보상은 출력 생략, 필요하면 N스텝마다만 출력(옵션)
         const int LOG_EVERY_N_STEPS = 0; // 0이면 주기적 로그 비활성화. 20 등으로 바꾸면 20스텝마다 찍음.
@@ -213,20 +224,29 @@ public class DroneAgent : Agent
 
         if (debugReward)
         {
-            bool nonZeroReward = Mathf.Abs(stepR) > 1e-6f;
+            bool nonZeroReward = Mathf.Abs(indivReward) > 1e-6f;
             bool periodic = (LOG_EVERY_N_STEPS > 0) && (stepCount % LOG_EVERY_N_STEPS == 0);
 
             if (nonZeroReward || periodic)
             {
-                Debug.Log(
-                    $"[Agent {gameObject.name}] QoE={qoe:F3}  Cov={cov:F3}  Ene={ene:F3}  Overlap={overlap}  pen_o={overlapPenalty:F3} " +
+               /* Debug.Log(
+                    $"[Agent {gameObject.name}] QoE={qoe:F3}  Cov={cov:F3}  Ene={ene:F3}  Overlap={overlap}  " +
                     $"=> stepR={stepR:F4} num={_qoeNumeratorThisStep:F3} denom={totalWeightDenom:F1} batt={(energyWhInit > 0 ? (energyWh / energyWhInit * 100f) : 0f):F2} %"
+                );*/
+
+                
+                Debug.Log(
+                          $"[Agent {gameObject.name}] QoE={qoe:F3} Ene={ene:F3} IndivR={indivReward:F4} " +
+                          $"Overlap={Mathf.Max(0, _overconnectThisStep)} Batt={(energyWhInit > 0 ? (energyWh / energyWhInit * 100f) : 0f):F1}% "
+                         
                 );
+                
             }
         }
 
         _qoeNumeratorThisStep = 0f;
-        _overconnectThisStep  = 0;
+      //  _overconnectThisStep  = 0;
+      
     }
 
     public override void Heuristic(in ActionBuffers actionsOut)
@@ -312,4 +332,15 @@ public class DroneAgent : Agent
         Gizmos.DrawWireCube(center, size);
     }
 #endif
+
+
+    public int GetOverlap()
+    {
+        return _overconnectThisStep;
+    }
+
+
+
+
+
 }

@@ -65,7 +65,7 @@ public class CommsSensor : MonoBehaviour
         }
 
         // report the two numbers to the agent
-        _agent.ReportQoEAndOverlap(sumQoEThisFrame, maxOverlapThisFrame);
+        //_agent.ReportQoEAndOverlap(sumQoEThisFrame, maxOverlapThisFrame);
         // Note: ResetAggregation is optional because Pop removes the per-drone key.
         // If you prefer to clear all UE state at frame end, call ResetAggregation() from a manager.
 
