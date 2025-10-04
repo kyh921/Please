@@ -1,25 +1,21 @@
 using System.Collections.Generic;
 using UnityEngine;
 
-#if UNITY_MLAGENTS
 using Unity.MLAgents;
 using Unity.MLAgents.Actuators;
 using Unity.MLAgents.Sensors;
-#endif
 
 [RequireComponent(typeof(DroneController))]
-public class DroneAgent :
-#if UNITY_MLAGENTS
-    Agent
-#else
-    MonoBehaviour
-#endif
+public class DroneAgent : Agent
 {
     // ===== 이동 제어 =====
     public float yawCmdDegPerSec = 0f;
-    DroneController ctrl;
+    private DroneController ctrl;
 
-    Vector3 prevPos;
+    // UE/수신기 센서(옵션): 관측에 QoE, Al(Mbps) 등을 쓰고 싶을 때 연결
+    [SerializeField] private RadioReceiver sensor;
+
+    private Vector3 prevPos;
     public float LastStepDistance { get; private set; }
 
     // ===== QoE 보상 =====
@@ -31,25 +27,21 @@ public class DroneAgent :
     public float eps = 1e-6f;
 
     // 이번 스텝 집계 입력(센서/리시버가 채워줌)
-    float _qoeNumeratorThisStep = 0f; // 내 드론의 Σ(A_l × UE가중치)
-    int _overconnectThisStep = 0;  // 유효링크수 - 1 (음수면 0으로)
+    private float _qoeNumeratorThisStep = 0f; // 내 드론의 Σ(A_l × UE가중치)
+    private int   _overconnectThisStep   = 0; // 유효 링크 수 - 1 (음수면 0)
 
-    /// <summary>프레임 시작에 센서가 호출해서 누산기 초기화</summary>
+    /// <summary>프레임 시작에 누산기 초기화</summary>
     public void BeginStepAggregation()
     {
         _qoeNumeratorThisStep = 0f;
-        _overconnectThisStep = 0;
+        _overconnectThisStep  = 0;
     }
 
-    /// <summary>
-    /// 센서/리시버가 이번 프레임의 내 드론 QoE 분자와 오버커넥트를 보고.
-    /// perDroneQoENumerator = Σ(A_l × UE가중치) for THIS drone.
-    /// overconnect = 유효 링크 수 - 1.
-    /// </summary>
+    /// <summary>센서/리시버가 이번 프레임의 내 드론 QoE 분자와 오버커넥트를 보고</summary>
     public void ReportQoEAndOverlap(float perDroneQoENumerator, int overconnect)
     {
         _qoeNumeratorThisStep += Mathf.Max(0f, perDroneQoENumerator);
-        _overconnectThisStep = Mathf.Max(_overconnectThisStep, Mathf.Max(0, overconnect));
+        _overconnectThisStep   = Mathf.Max(_overconnectThisStep, Mathf.Max(0, overconnect));
     }
 
     // ===== 에너지 모델 (Table III) =====
@@ -70,9 +62,9 @@ public class DroneAgent :
 
     // --- 파생 값 ---
     float DiscAreaA => Mathf.PI * R * R;                           // A = πR^2
-    float WeightN => massKg * 9.81f;                             // W [N]
-    float Vtip => Omega * R;                                  // U_tip
-    float v0_hover => Mathf.Sqrt(WeightN / (2f * rho * DiscAreaA)); // v0
+    float WeightN   => massKg * 9.81f;                             // W [N]
+    float Vtip      => Omega * R;                                  // U_tip
+    float v0_hover  => Mathf.Sqrt(WeightN / (2f * rho * DiscAreaA));// v0
 
     float PowerHoverW()
     {
@@ -91,10 +83,10 @@ public class DroneAgent :
 
         float V2 = v * v;
         float v0 = v0_hover;
-        float inside = Mathf.Sqrt(1f + (V2 * V2) / (4f * Mathf.Pow(v0, 4f))) - (V2 / (2f * v0 * v0));
+        float inside  = Mathf.Sqrt(1f + (V2 * V2) / (4f * Mathf.Pow(v0, 4f))) - (V2 / (2f * v0 * v0));
         float induced = Pi_hover * Mathf.Sqrt(Mathf.Max(0f, inside));
         float profile = Po * (1f + 3f * V2 / (Vtip * Vtip));
-        float parasite = 0.5f * d0_parasite * rho * s * DiscAreaA * v * V2;
+        float parasite= 0.5f * d0_parasite * rho * s * DiscAreaA * v * V2;
 
         return profile + induced + parasite; // [W]
     }
@@ -103,14 +95,14 @@ public class DroneAgent :
     void Awake()
     {
         ctrl = GetComponent<DroneController>();
+        if (sensor == null) sensor = GetComponentInChildren<RadioReceiver>(); // 있으면 자동 연결
         prevPos = transform.position;
     }
 
-#if UNITY_MLAGENTS
     public override void OnEpisodeBegin()
     {
         // 간단 리셋
-        Vector3 p = new Vector3(Random.Range(-200f, 200f), Random.Range(40f, 120f), Random.Range(-200f, 200f));
+        Vector3 p = new Vector3(Random.Range(-50f, 50f), Random.Range(40f, 120f), Random.Range(-50f, 50f));
         transform.position = p;
         transform.rotation = Quaternion.Euler(0f, Random.Range(0f, 360f), 0f);
         prevPos = transform.position;
@@ -131,12 +123,14 @@ public class DroneAgent :
 
     public override void CollectObservations(VectorSensor s)
     {
-        s.AddObservation(transform.position / 500f);
-        s.AddObservation(ctrl.Altitude() / 200f);
-        s.AddObservation(ctrl.CurrentVelocity() / 20f);
+        // 위치/고도/속도
+        s.AddObservation(transform.position / 500f);     // Vector3
+        s.AddObservation(ctrl.Altitude() / 200f);        // 1
+        s.AddObservation(ctrl.CurrentVelocity() / 20f);  // Vector3
 
-        int linkable = sensor ? sensor.linkableCount : 0;
-        s.AddObservation(Mathf.Clamp01(linkable / 50f));
+        // UE 신호(옵션): sensor가 있으면 마지막 QoE를 스케일링해서 사용, 없으면 0
+        float qoeHint = (sensor != null) ? sensor.LastQoE : 0f;
+        s.AddObservation(Mathf.Clamp(qoeHint / 10f, -1f, 1f)); // 1  → 총 관측 길이 = 8
     }
 
     public bool debugReward = false;
@@ -159,12 +153,15 @@ public class DroneAgent :
         float cov = ComputeCoverageReward_Aggregated();
         float ene = ComputeEnergyReward();
 
-        AddReward(qoe * cov * ene);
+        float stepR = qoe * cov * ene;
+        AddReward(stepR);
 
-        if (debugReward) {
-        Debug.Log($"[Agent {name}] QoE={qoe:F3}  Cov={cov:F3}  Ene={ene:F3}  => R={reward:F4}  " +
-                  $"num={_qoeNumeratorThisStep:F3} denom={totalWeightDenom:F1}  overlap={_overconnectThisStep}");
-    }
+        if (debugReward)
+        {
+            Debug.Log($"[Agent {name}] QoE={qoe:F3}  Cov={cov:F3}  Ene={ene:F3}  " +
+                      $"=> stepR={stepR:F4}, cumR={GetCumulativeReward():F4}  " +
+                      $"num={_qoeNumeratorThisStep:F3} denom={totalWeightDenom:F1}  overlap={_overconnectThisStep}");
+        }
 
         // 다음 스텝 대비
         _qoeNumeratorThisStep = 0f;
@@ -174,34 +171,10 @@ public class DroneAgent :
     public override void Heuristic(in ActionBuffers actionsOut)
     {
         var a = actionsOut.ContinuousActions;
-        a[0] = Input.GetAxis("Horizontal");
-        a[2] = Input.GetAxis("Vertical");
-        a[1] = (Input.GetKey(KeyCode.E) ? 1f : 0f) + (Input.GetKey(KeyCode.Q) ? -1f : 0f);
+        a[0] = Input.GetAxis("Horizontal");                         // x
+        a[2] = Input.GetAxis("Vertical");                           // z
+        a[1] = (Input.GetKey(KeyCode.E) ? 1f : 0f) + (Input.GetKey(KeyCode.Q) ? -1f : 0f); // y
     }
-#else
-    void Update()
-    {
-        float strafe = Input.GetAxis("Horizontal");
-        float forward = Input.GetAxis("Vertical");
-        float climb = 0f; if (Input.GetKey(KeyCode.E)) climb += 1f; if (Input.GetKey(KeyCode.Q)) climb -= 1f;
-
-        ctrl.SetCommand(new Vector3(strafe * ctrl.maxHorizontalSpeed,
-                                    climb * ctrl.maxClimbRate,
-                                    forward * ctrl.maxHorizontalSpeed),
-                        yawCmdDegPerSec);
-
-        LastStepDistance = Vector3.Distance(prevPos, transform.position);
-        prevPos = transform.position;
-
-        float finalReward = ComputeQoEReward_Aggregated()
-                          * ComputeCoverageReward_Aggregated()
-                          * ComputeEnergyReward();
-
-        // 디버그 모드에선 누산기 초기화만
-        _qoeNumeratorThisStep = 0f;
-        _overconnectThisStep = 0;
-    }
-#endif
 
     // ===== Reward terms =====
 
@@ -224,7 +197,7 @@ public class DroneAgent :
         Vector3 v = ctrl.CurrentVelocity();
         float V = new Vector2(v.x, v.z).magnitude;
 
-        float P = (V < hoverSpeedEps) ? PowerHoverW() : PowerForwardW(V); // [W]
+        float P  = (V < hoverSpeedEps) ? PowerHoverW() : PowerForwardW(V); // [W]
         float mu = Mathf.Max(0f, P) * Mathf.Max(Time.deltaTime, 1e-3f);    // [J]
 
         return 1f / (1f + mu);
