@@ -163,7 +163,7 @@ public class DroneAgent : Agent
     public float zMin = -1100f, zMax = -50f;
 
     [Tooltip("허용 고도 범위 (min,max)")]
-    public Vector2 yLimit  = new Vector2(20f, 150f);
+    public Vector2 yLimit  = new Vector2(0f, 200f);
 
     public float boundaryPenalty = -0.2f;
     public bool endOnBoundary = true;
@@ -172,7 +172,7 @@ public class DroneAgent : Agent
     public float overlapPenaltyPerLink = 0.05f;
 
     public LayerMask obstacleLayers;
-    public string[] obstacleTags = new string[] { "Drone", "Obstacle", "Building" };
+    public string[] obstacleTags = new string[] { "Drone", "Building" };
 
     // ====== 스폰 범위 ======
     [Header("Spawn Range (per episode)")]
