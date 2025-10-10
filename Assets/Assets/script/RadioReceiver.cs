@@ -31,7 +31,6 @@ public class RadioReceiver : MonoBehaviour
     [Header("Runtime (readonly)")]
     public int recvPackets = 0;
 
-    // 占쎌꼷�� 占쎈�源쏙옙占�(占쎌뮄而뽳옙占�/繹먯뮆臾�占쏙옙 占쏙옙)
     public event Action<int, byte[], float> OnReceive;  // (srcId, payload, sinrDb)
 
     // --- 占쎈뗀苡�뉩占� 占쎈챷�㎩첎占� ---
@@ -92,6 +91,11 @@ public class RadioReceiver : MonoBehaviour
         _connectedSrc.Clear();
     }
 
+    public void ForceDisconnect(int srcId)
+    {
+        _sumWeighted.Remove(srcId);
+        _connectedSrc.Remove(srcId);
+    }
     public void AcceptSinrFromModel(int srcId, float sinrDb, byte[] payload = null)
     {
         // 1) SINR 占쏙옙 CQI
