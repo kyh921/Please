@@ -266,7 +266,7 @@ public class DroneAgent : Agent
         float tau = (totalDemand > 0f) ? (coveredDemand / totalDemand) : 0f;
         float w = (overCount > 0) ? (sumOver / overCount) : 0f;
 
-        float cov = tau / (1f + w);
+        float cov = (2.0f * tau) / (1f + (0.5f * w));
         return Mathf.Clamp01(cov);
     }
 
