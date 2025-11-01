@@ -9,7 +9,6 @@ using Unity.MLAgents.Sensors;
 public class DroneAgent : Agent
 {   
     [Header("Energy scaling")]
-    [SerializeField] float energyDrainScale = 5f;   // 1보다 크면 더 빨리 닳음 (예: 3f)
     [SerializeField] bool drainBySteps = true;          // true면 스텝 기반
     [SerializeField] float secondsPerStepForEnergy = 0.02f; // 1 스텝을 몇 초로 간주할지(예: fixedDeltaTime)
 
@@ -169,12 +168,14 @@ public class DroneAgent : Agent
             ? Mathf.Max(secondsPerStepForEnergy, 1e-4f)     // 스텝 고정
             : (Time.inFixedTimeStep ? Time.fixedDeltaTime : Time.deltaTime);
 
+        float distanceScale = 35f; // RadioLinkModel과 동일한 환경 스케일
+
         // 3D 속도: Rigidbody가 있으면 그것을 신뢰, 없으면 위치 변화로 추정
         float V;
         if (_rb != null)
-            V = _rb.velocity.magnitude;
+            V = _rb.velocity.magnitude * distanceScale;  // ⬅️ 여기 곱하기
         else
-            V = (transform.position - prevPos).magnitude / dt;
+            V = ((transform.position - prevPos).magnitude * distanceScale) / dt;
 
         // hover/forward 분류만 정확히 (hoverSpeedEps=0.2 유지)
         float P_hover = PowerHoverW();
@@ -182,7 +183,7 @@ public class DroneAgent : Agent
             ? P_hover
             : Mathf.Max(P_hover * 3.0f, PowerForwardW(V));
 
-        float usedWh = energyDrainScale * Mathf.Max(0f, P) * dt / 3600f;  // μ(t) [Wh]
+        float usedWh = Mathf.Max(0f, P) * dt / 3600f;
         energyWh = Mathf.Max(0f, energyWh - usedWh);
 
         // ★ 배터리 0이면 그 드론만 탈락
@@ -302,7 +303,7 @@ public class DroneAgent : Agent
         int overlap = Mathf.Max(0, _overconnectThisStep);
         float overlapPenalty = overlap * overlapPenaltyPerLink;
 
-        float stepR = qoe * cov * ene - overlapPenalty;
+        float stepR = qoe * cov * ene;
         AddReward(stepR);
 
         const int LOG_EVERY_N_STEPS = 0;
@@ -337,13 +338,58 @@ public class DroneAgent : Agent
     // ===== Reward terms =====
     float ComputeQoEReward_Aggregated()
     {
-        float qoe = _qoeNumeratorThisStep / (1.5f*totalWeightDenom);
-        return Mathf.Clamp01(qoe);
+        int srcId = GetSrcId();
+        float num = 0f;
+        float denom = 1.5f * totalWeightDenom;
+
+        foreach (var rr in RadioReceiver.All)
+        {
+            if (rr == null) continue;
+
+            var area = rr.GetComponentInParent<DemandArea>();
+            if (area == null || area.kind != AreaKind.Building) continue;
+
+            float demand = Mathf.Max(0, area.demand);
+
+            // 연결된 UE만 집계 (RadioReceiver 헬퍼 사용)
+            if (rr.IsConnectedTo(srcId))
+            {
+                float qoe = Mathf.Max(0f, rr.LastQoE); // RadioReceiver에서 계산된 QoE 사용
+                num += qoe * demand;
+            }
+        }
+
+        if (denom <= 0f) return 0f;
+        float qoeReward = num / denom;
+        return Mathf.Clamp01(qoeReward);
     }
 
     float ComputeCoverageReward_Aggregated()
     {
-        return 1f / (1f + Mathf.Max(0, _overconnectThisStep));
+        int srcId = GetSrcId();
+
+        float totalDemand = 0f;
+        float coveredDemand = 0f;
+
+        foreach (var rr in RadioReceiver.All)
+        {
+            if (rr == null) continue;
+
+            var area = rr.GetComponentInParent<DemandArea>();
+            if (area == null || area.kind != AreaKind.Building) continue;
+
+            float demand = Mathf.Max(0, area.demand);
+            totalDemand += demand;
+
+            // 오직 "연결 여부"만으로 판정 (QoE 반영 X)
+            if (rr.IsConnectedTo(srcId))
+                coveredDemand += demand;
+        }
+
+        if (totalDemand <= 0f) return 0f;
+
+        float cov = coveredDemand / totalDemand;
+        return Mathf.Clamp01(cov);
     }
 
     float ComputeEnergyReward()

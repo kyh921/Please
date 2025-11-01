@@ -62,7 +62,7 @@ public class RadioLinkModel : MonoBehaviour
     public double[,] GetAllHataLosses()
     {
         // 네 환경에 맞춘 스케일. (원래 30, 50, 70 쓰던 그 값)
-        const double distanceScale = 10.0;  // ← 네가 원하던 스케일 값
+        const double distanceScale = 35.0;  // ← 네가 원하던 스케일 값
 
         int txCount = txPositions.Count;
         int rxCount = rxPositions.Count;
@@ -165,6 +165,9 @@ public class RadioLinkModel : MonoBehaviour
     /// <summary>
     /// SINR 계산 (선형, dB 동시 리턴)
     /// </summary>
+    /// 
+
+    
     public (double[,] linear, double[,] dB) GetAllSINR(double[,] rxPowers_mW)
     {
         int txCount = rxPowers_mW.GetLength(0);

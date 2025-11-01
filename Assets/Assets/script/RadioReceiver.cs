@@ -121,7 +121,7 @@ public class RadioReceiver : MonoBehaviour
                 tbsBits = Mathf.Max(0, TBS_bits_for_PRB50[iTbs]);
                 Al_bps = tbsBits * 1000;        // 1ms 전송 → bps 환산
                 Al_Mbps = Al_bps / 1_000_000f;  // Mbps
-                QoE = Mathf.Log(Mathf.Max(1e-6f, Al_Mbps - 1.0f));
+                QoE = Mathf.Log(Mathf.Max(1e-6f, 237f * Al_Mbps - 216.6f));
             }
         }
 
@@ -157,7 +157,13 @@ public class RadioReceiver : MonoBehaviour
             OnReceive?.Invoke(srcId, payload, sinrDb);
         }
     }
+    public bool IsConnectedTo(int srcId)
+    {
+        return _connectedSrc.Contains(srcId);
+    }
 
+    // (원하면) 오버커넥트 계산에 쓰기 편한 카운트도 노출 가능
+    public int ConnectedSourceCount => _connectedSrc.Count;
     public void PopQoeAndOverlapFor(int srcId, out float sumWeighted, out int overconnect)
     {
         _sumWeighted.TryGetValue(srcId, out sumWeighted);
