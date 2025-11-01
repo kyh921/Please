@@ -225,7 +225,7 @@ public class DroneAgent : Agent
 
             if (rr.IsConnectedTo(srcId))
             {
-                float qoe = Mathf.Max(0f, rr.LastQoE);
+                float qoe = Mathf.Max(0f, rr.GetQoEFor(srcId));
                 num += qoe * demand;
             }
         }

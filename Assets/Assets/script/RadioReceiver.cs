@@ -91,6 +91,16 @@ public class RadioReceiver : MonoBehaviour
         _connectedSrc.Clear();
     }
 
+    // 클래스 상단 필드
+    readonly Dictionary<int, float> _qoeBySrc = new Dictionary<int, float>(64);
+
+    // 드론별 QoE 조회 헬퍼
+    public float GetQoEFor(int srcId)
+    {
+        return _qoeBySrc.TryGetValue(srcId, out var q) ? q : 0f;
+    }
+
+
     public void ForceDisconnect(int srcId)
     {
         _sumWeighted.Remove(srcId);
@@ -137,6 +147,7 @@ public class RadioReceiver : MonoBehaviour
         if (sinrDb >= rxThresholdSinrDb)
         {
             _connectedSrc.Add(srcId);
+            _qoeBySrc[srcId] = QoE;
 
             int demand = (_area && _area.kind == AreaKind.Building) ? Mathf.Max(0, _area.demand) : 0;
             float value = (metric == ReceiverMetric.AlThroughputMbps) ? Al_Mbps : QoE;
@@ -160,6 +171,7 @@ public class RadioReceiver : MonoBehaviour
         {
             // 👇 임계 미만이면 연결 해제 (한 틱에서 끊긴 상태로 반영)
             _connectedSrc.Remove(srcId);
+            _qoeBySrc.Remove(srcId);
             // 필요 시 이 UE에 대해 srcId로 누산한 값도 틱 단위 의미라면 비우기:
             // _sumWeighted.Remove(srcId);
         }
