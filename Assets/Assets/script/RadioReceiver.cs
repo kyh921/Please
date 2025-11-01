@@ -156,6 +156,13 @@ public class RadioReceiver : MonoBehaviour
             recvPackets++;
             OnReceive?.Invoke(srcId, payload, sinrDb);
         }
+        else
+        {
+            // 👇 임계 미만이면 연결 해제 (한 틱에서 끊긴 상태로 반영)
+            _connectedSrc.Remove(srcId);
+            // 필요 시 이 UE에 대해 srcId로 누산한 값도 틱 단위 의미라면 비우기:
+            // _sumWeighted.Remove(srcId);
+        }
     }
     public bool IsConnectedTo(int srcId)
     {
