@@ -340,7 +340,7 @@ public class DroneAgent : Agent
     {
         int srcId = GetSrcId();
         float num = 0f;
-        float denom = 1.5f * totalWeightDenom;
+        float denom = 1.5f * totalWeightDenom; // * 1.5f 없앰
 
         foreach (var rr in RadioReceiver.All)
         {
