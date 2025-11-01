@@ -35,6 +35,9 @@ public class RadioLinkRuntime : MonoBehaviour
         int rxCount = _rxList.Count;
         if (txCount == 0 || rxCount == 0) return;
 
+        for (int j = 0; j < rxCount; j++)
+            _rxList[j].ResetAggregation();
+
         // 2) 모델 입력 채우기
         EnsureCapacity(model, txCount, rxCount);
 
