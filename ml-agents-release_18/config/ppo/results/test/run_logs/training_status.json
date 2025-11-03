@@ -1,0 +1,47 @@
+{
+    "DronePoca": {
+        "checkpoints": [
+            {
+                "steps": 499000,
+                "file_path": "results\\test\\DronePoca\\DronePoca-499000.onnx",
+                "reward": 1116.7043075561523,
+                "creation_time": 1762012912.5370789,
+                "auxillary_file_paths": [
+                    "results\\test\\DronePoca\\DronePoca-499000.pt"
+                ]
+            },
+            {
+                "steps": 999000,
+                "file_path": "results\\test\\DronePoca\\DronePoca-999000.onnx",
+                "reward": 795.5105183919271,
+                "creation_time": 1762019051.2364213,
+                "auxillary_file_paths": [
+                    "results\\test\\DronePoca\\DronePoca-999000.pt"
+                ]
+            },
+            {
+                "steps": 1002000,
+                "file_path": "results\\test\\DronePoca\\DronePoca-1002000.onnx",
+                "reward": 1107.0995229085286,
+                "creation_time": 1762019051.300891,
+                "auxillary_file_paths": [
+                    "results\\test\\DronePoca\\DronePoca-1002000.pt"
+                ]
+            }
+        ],
+        "final_checkpoint": {
+            "steps": 1002000,
+            "file_path": "results\\test\\DronePoca.onnx",
+            "reward": 1107.0995229085286,
+            "creation_time": 1762019051.300891,
+            "auxillary_file_paths": [
+                "results\\test\\DronePoca\\DronePoca-1002000.pt"
+            ]
+        }
+    },
+    "metadata": {
+        "stats_format_version": "0.3.0",
+        "mlagents_version": "0.27.0",
+        "torch_version": "1.13.1+cpu"
+    }
+}
