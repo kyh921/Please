@@ -22,8 +22,10 @@ public class DroneAgent : Agent
     private Collider[] _allColliders;
     private Renderer[] _allRenderers;
 
-    [Header("Per-Agent Episode")]
-    public int episodeMaxSteps = 50000;
+    [Header("Episode control")]
+    [Tooltip("그룹 에피소드(멀티에이전트)를 사용할 때 체크. 체크 시 이 스크립트는 EndEpisode를 스스로 호출하지 않습니다.")]
+    public bool useGroupEpisodes = true;
+    public int episodeMaxSteps = 50000;   // useGroupEpisodes=false일 때만 사용
     private int episodeStep = 0;
 
     private Rigidbody _rb;
@@ -161,7 +163,6 @@ public class DroneAgent : Agent
         }
         else
         {
-            // spawnPoint 미지정 시: 현재 위치 유지 (필요 시 높이만 안전 범위로 클램프)
             if (clampYToLimitIfNoSpawnPoint)
             {
                 var p = transform.position;
@@ -169,7 +170,6 @@ public class DroneAgent : Agent
                 transform.position = p;
             }
         }
-        // --- 랜덤 스폰 코드 완전 제거됨 ---
 
         prevPos = transform.position;
 
@@ -211,15 +211,15 @@ public class DroneAgent : Agent
         UpdateEnergyQueueByPaperModel();
 
         float qoe = ComputeQoEReward_Aggregated();
-        float cov = ComputeCoverageReward_Aggregated();   // 수정된 τ/(1+w)
         float ene = ComputeEnergyReward();
 
-        float stepR = qoe * cov * ene;   // overlapFactor 제거
+        // === 개별 보상만 더한다 (공통 보상 cov는 매니저가 그룹 보상으로 처리) ===
+        float stepR = qoe * ene;
         AddReward(stepR);
 
         if (debugReward)
         {
-            Debug.Log($"[Agent {gameObject.name}] QoE={qoe:F3}  Cov={cov:F3}  Ene={ene:F3}  stepR={stepR:F4}");
+            Debug.Log($"[Agent {gameObject.name}] QoE={qoe:F3}  Ene={ene:F3}  stepR={stepR:F4}");
         }
     }
 
@@ -251,8 +251,7 @@ public class DroneAgent : Agent
         return Mathf.Clamp01(num / denom);
     }
 
-    // Cov = τ / (1 + w) 변형
-    float ComputeCoverageReward_Aggregated()
+    public static float ComputeCoverageRewardForScene()
     {
         float totalDemand = 0f;
         float coveredDemand = 0f;
@@ -296,11 +295,14 @@ public class DroneAgent : Agent
     // ===== 경계 처리 =====
     void FixedUpdate()
     {
-        episodeStep++;
-        if (episodeStep >= episodeMaxSteps)
+        if (!useGroupEpisodes)
         {
-            EndEpisode();
-            return;
+            episodeStep++;
+            if (episodeStep >= episodeMaxSteps)
+            {
+                EndEpisode();
+                return;
+            }
         }
 
         if (_isEliminated) return;
@@ -315,7 +317,7 @@ public class DroneAgent : Agent
         {
             AddReward(boundaryPenalty);
             if (eliminateOnFail) Eliminate("boundary");
-            else if (endOnBoundary) EndEpisode();
+            else if (!useGroupEpisodes && endOnBoundary) EndEpisode();
         }
     }
 
@@ -323,16 +325,16 @@ public class DroneAgent : Agent
     {
         if (_isEliminated) return;
 
-        // 충돌한 오브젝트가 장애물인지 확인
         bool isObstacleTag = obstacleTags != null && System.Array.Exists(obstacleTags, t => collision.collider.CompareTag(t));
         bool isObstacleLayer = ((1 << collision.collider.gameObject.layer) & obstacleLayers.value) != 0;
 
         if (isObstacleTag || isObstacleLayer)
         {
-            AddReward(collisionPenalty);  // 충돌 패널티 부여
-            Eliminate("collision");       //탈락
+            AddReward(collisionPenalty);
+            Eliminate("collision");
         }
     }
+
     void Eliminate(string reason)
     {
         if (_isEliminated) return;
@@ -385,25 +387,17 @@ public class DroneAgent : Agent
         }
     }
 
-    public void BeginStepAggregation()
-    {
-        // no-op (호환용)
-    }
-
-    public void ReportQoEAndOverlap(float perDroneQoENumerator, int overconnect)
-    {
-        // no-op (호환용)
-    }
+    // 호환용 no-op
+    public void BeginStepAggregation() { }
+    public void ReportQoEAndOverlap(float perDroneQoENumerator, int overconnect) { }
 
     public override void Heuristic(in ActionBuffers actionsOut)
     {
         var a = actionsOut.ContinuousActions;
 
-        // 방향키나 WASD로 수평 이동
-        a[0] = Input.GetAxis("Horizontal");  // X축 이동
-        a[2] = Input.GetAxis("Vertical");    // Z축 이동
+        a[0] = Input.GetAxis("Horizontal");
+        a[2] = Input.GetAxis("Vertical");
 
-        // E/Q 키로 상승/하강
         float up = Input.GetKey(KeyCode.E) ? 1f : 0f;
         float down = Input.GetKey(KeyCode.Q) ? -1f : 0f;
         a[1] = up + down;
