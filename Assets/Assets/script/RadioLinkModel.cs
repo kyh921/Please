@@ -186,7 +186,7 @@ public class RadioLinkModel : MonoBehaviour
                     if (k != i)
                         interference += rxPowers_mW[k, l];
                 }
-                double sinr = signal / (noisePowerMw + (0.1f*interference));
+                double sinr = signal / (noisePowerMw + interference);
                 sinrLinear[i, l] = sinr;
                 sinrDb[i, l] = 10.0 * Math.Log10(sinr);
             }
