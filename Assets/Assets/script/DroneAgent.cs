@@ -23,7 +23,7 @@ public class DroneAgent : Agent
     private Renderer[] _allRenderers;
 
     [Header("Per-Agent Episode")]
-    public int episodeMaxSteps = 5000;
+    public int episodeMaxSteps = 50000;
     private int episodeStep = 0;
 
     private Rigidbody _rb;
@@ -97,7 +97,7 @@ public class DroneAgent : Agent
             ? Mathf.Max(secondsPerStepForEnergy, 1e-4f)
             : (Time.inFixedTimeStep ? Time.fixedDeltaTime : Time.deltaTime);
 
-        float distanceScale = 20f;
+        float distanceScale = 10f;
 
         float V;
         if (_rb != null)
@@ -229,7 +229,7 @@ public class DroneAgent : Agent
     {
         int srcId = GetSrcId();
         float num = 0f;
-        float denom = 1.2f * totalWeightDenom;
+        float denom = 0.7f * totalWeightDenom;
 
         foreach (var rr in RadioReceiver.All)
         {

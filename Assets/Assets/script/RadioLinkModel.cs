@@ -14,11 +14,11 @@ public class RadioLinkModel : MonoBehaviour
     // 배경 노이즈 (상수값)
     const double noisePowerMw = 1.2589254117941673e-10; // mW 단위로 변환
     // 송신 안테나 게인(Gmax, dBi)
-    public static double Gpeak_dBi = 5.0;
+    public static double Gpeak_dBi = 2.0;
     // 송신 전력 (dBm)
-    public static double Ptx_dBm = 39.0;
+    public static double Ptx_dBm = 23.0;
     // 수신 안테나 게인 (dBi)
-    public static double Grx_dBi = 3.0;
+    public static double Grx_dBi = 0.0;
 
     public List<Vector3> txPositions; // 송신기 위치 리스트
     public List<float> txHeights;     // 송신기 안테나 높이 (m)
@@ -62,7 +62,7 @@ public class RadioLinkModel : MonoBehaviour
     public double[,] GetAllHataLosses()
     {
         // 네 환경에 맞춘 스케일. (원래 30, 50, 70 쓰던 그 값)
-        const double distanceScale = 35.0;  // ← 네가 원하던 스케일 값
+        const double distanceScale = 8.0;  // ← 네가 원하던 스케일 값
 
         int txCount = txPositions.Count;
         int rxCount = rxPositions.Count;
@@ -186,7 +186,7 @@ public class RadioLinkModel : MonoBehaviour
                     if (k != i)
                         interference += rxPowers_mW[k, l];
                 }
-                double sinr = signal / (noisePowerMw + interference);
+                double sinr = signal / (noisePowerMw + (0.8f * interference));
                 sinrLinear[i, l] = sinr;
                 sinrDb[i, l] = 10.0 * Math.Log10(sinr);
             }
