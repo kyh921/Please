@@ -210,17 +210,34 @@ public class DroneAgent : Agent
         prevPos = transform.position;
         UpdateEnergyQueueByPaperModel();
 
+        // ====== [수정된 보상 블록: 개별 × 공통] ======
         float qoe = ComputeQoEReward_Aggregated();
-        float cov = ComputeCoverageReward_Aggregated();   // 수정된 τ/(1+w)
         float ene = ComputeEnergyReward();
+        float indiv = Mathf.Clamp01(qoe) * Mathf.Clamp01(ene);
 
-        float stepR = qoe * cov * ene;   // overlapFactor 제거
+        float cov;
+        if (CoverageManager.Instance != null)
+        {
+            // 중앙에서 한 번 계산한 공통 보상 (권장 경로)
+            cov = Mathf.Clamp01(CoverageManager.Instance.CurrentCov);
+        }
+        else
+        {
+            // 매니저가 없을 때만 기존 로컬 계산으로 폴백(동작 보장용)
+            cov = Mathf.Clamp01(ComputeCoverageReward_Aggregated());
+        }
+
+        float stepR = indiv * cov;
         AddReward(stepR);
+        Academy.Instance.StatsRecorder.Add("reward/indiv", indiv);
+        Academy.Instance.StatsRecorder.Add("reward/cov",   cov);
+        Academy.Instance.StatsRecorder.Add("reward/step",  stepR);
 
         if (debugReward)
         {
-            Debug.Log($"[Agent {gameObject.name}] QoE={qoe:F3}  Cov={cov:F3}  Ene={ene:F3}  stepR={stepR:F4}");
+            Debug.Log($"[Agent {gameObject.name}] indiv={indiv:F3}  cov={cov:F3}  stepR={stepR:F4}");
         }
+        // ============================================
     }
 
     // ===== Reward terms =====
@@ -251,7 +268,7 @@ public class DroneAgent : Agent
         return Mathf.Clamp01(num / denom);
     }
 
-    // Cov = τ / (1 + w) 변형
+    // Cov = τ / (1 + w) 변형 (로컬 폴백용: 중앙 매니저 없을 때만 사용)
     float ComputeCoverageReward_Aggregated()
     {
         float totalDemand = 0f;

@@ -1,0 +1,42 @@
+{
+    "name": "root",
+    "metadata": {
+        "timer_format_version": "0.1.0",
+        "start_time_seconds": "1762687940",
+        "python_version": "3.7.0 (default, Jun 28 2018, 08:04:48) [MSC v.1912 64 bit (AMD64)]",
+        "command_line_arguments": "C:\\Users\\ajou\\anaconda3\\envs\\2025capstone\\Scripts\\mlagents-learn DronePoca.yaml --run-id=test04 --force",
+        "mlagents_version": "0.27.0",
+        "mlagents_envs_version": "0.27.0",
+        "communication_protocol_version": "1.5.0",
+        "pytorch_version": "1.13.1+cpu",
+        "numpy_version": "1.21.6",
+        "end_time_seconds": "1762688001"
+    },
+    "total": 61.3077559,
+    "count": 1,
+    "self": 0.006667900000003613,
+    "children": {
+        "run_training.setup": {
+            "total": 0.07020280000000012,
+            "count": 1,
+            "self": 0.07020280000000012
+        },
+        "TrainerController.start_learning": {
+            "total": 61.230885199999996,
+            "count": 1,
+            "self": 0.00014119999999451238,
+            "children": {
+                "TrainerController._reset_env": {
+                    "total": 61.2307036,
+                    "count": 1,
+                    "self": 61.2307036
+                },
+                "TrainerController._save_models": {
+                    "total": 4.040000000316013e-05,
+                    "count": 1,
+                    "self": 4.040000000316013e-05
+                }
+            }
+        }
+    }
+}
