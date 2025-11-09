@@ -128,9 +128,14 @@ public class DroneAgent : Agent
     public LayerMask obstacleLayers;
     public string[] obstacleTags = new string[] { "Drone", "Building" };
 
-    [Header("Spawn Range")]
-    public float spawnXMin = 180f, spawnXMax = 270f;
-    public float spawnZMin = -540f, spawnZMax = -440f;
+    // ===== 고정 스폰 설정 =====
+    [Header("Fixed Spawn (per agent)")]
+    [Tooltip("이 에이전트가 에피소드 시작 시 위치/회전을 가져올 Transform")]
+    public Transform spawnPoint;
+    [Tooltip("spawnPoint의 회전을 사용할지 여부 (끄면 현재 회전 유지)")]
+    public bool useSpawnRotation = true;
+    [Tooltip("spawnPoint가 없을 때 높이를 yLimit 범위로 클램프할지 여부")]
+    public bool clampYToLimitIfNoSpawnPoint = true;
 
     void Awake()
     {
@@ -148,11 +153,23 @@ public class DroneAgent : Agent
         energyWhInit = (batteryVolt * battery_mAh) / 1000f;
         energyWh = energyWhInit;
 
-        float rx = Random.Range(spawnXMin, spawnXMax);
-        float rz = Random.Range(spawnZMin, spawnZMax);
-        float ry = Random.Range(yLimit.x, yLimit.y);
-        transform.position = new Vector3(rx, ry, rz);
-        transform.rotation = Quaternion.Euler(0f, Random.Range(0f, 360f), 0f);
+        // --- 고정 스폰 로직 ---
+        if (spawnPoint != null)
+        {
+            transform.position = spawnPoint.position;
+            if (useSpawnRotation) transform.rotation = spawnPoint.rotation;
+        }
+        else
+        {
+            // spawnPoint 미지정 시: 현재 위치 유지 (필요 시 높이만 안전 범위로 클램프)
+            if (clampYToLimitIfNoSpawnPoint)
+            {
+                var p = transform.position;
+                p.y = Mathf.Clamp(p.y, yLimit.x, yLimit.y);
+                transform.position = p;
+            }
+        }
+        // --- 랜덤 스폰 코드 완전 제거됨 ---
 
         prevPos = transform.position;
 
@@ -197,7 +214,7 @@ public class DroneAgent : Agent
         float cov = ComputeCoverageReward_Aggregated();   // 수정된 τ/(1+w)
         float ene = ComputeEnergyReward();
 
-        float stepR = qoe * cov * ene;   // ⬅️ overlapFactor 제거
+        float stepR = qoe * cov * ene;   // overlapFactor 제거
         AddReward(stepR);
 
         if (debugReward)
@@ -234,7 +251,7 @@ public class DroneAgent : Agent
         return Mathf.Clamp01(num / denom);
     }
 
-    // Cov = τ / (1 + w)
+    // Cov = τ / (1 + w) 변형
     float ComputeCoverageReward_Aggregated()
     {
         float totalDemand = 0f;
