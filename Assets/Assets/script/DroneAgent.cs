@@ -319,6 +319,20 @@ public class DroneAgent : Agent
         }
     }
 
+    private void OnCollisionEnter(Collision collision)
+    {
+        if (_isEliminated) return;
+
+        // 충돌한 오브젝트가 장애물인지 확인
+        bool isObstacleTag = obstacleTags != null && System.Array.Exists(obstacleTags, t => collision.collider.CompareTag(t));
+        bool isObstacleLayer = ((1 << collision.collider.gameObject.layer) & obstacleLayers.value) != 0;
+
+        if (isObstacleTag || isObstacleLayer)
+        {
+            AddReward(collisionPenalty);  // 충돌 패널티 부여
+            Eliminate("collision");       //탈락
+        }
+    }
     void Eliminate(string reason)
     {
         if (_isEliminated) return;
