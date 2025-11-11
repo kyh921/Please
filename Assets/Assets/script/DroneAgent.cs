@@ -98,7 +98,7 @@ public class DroneAgent : Agent
             ? Mathf.Max(secondsPerStepForEnergy, 1e-4f)
             : (Time.inFixedTimeStep ? Time.fixedDeltaTime : Time.deltaTime);
 
-        float distanceScale = 10f;
+        float distanceScale = 8.0f;
 
         float V;
         if (_rb != null)
@@ -184,12 +184,32 @@ public class DroneAgent : Agent
 
     public override void CollectObservations(VectorSensor s)
     {
+        // 기존 관측: 위치/고도/속도/로컬 QoE 힌트
         s.AddObservation(transform.position / 500f);
         s.AddObservation(ctrl.Altitude() / 200f);
         s.AddObservation(ctrl.CurrentVelocity() / 20f);
 
         float qoeHint = (sensor != null) ? sensor.LastQoE : 0f;
         s.AddObservation(Mathf.Clamp(qoeHint / 10f, -1f, 1f));
+
+        // === 추가 관측 항목들 ===
+
+        // 1) 남은 에너지 비율
+        float energyRatio = (energyWhInit > 0f) ? (energyWh / energyWhInit) : 0f;
+        s.AddObservation(Mathf.Clamp01(energyRatio));
+
+        // 2) 글로벌 커버리지(팀 스칼라)
+        float cov = ComputeCoverageRewardForScene();
+        s.AddObservation(cov);
+
+        // 3) 내 UE demand 기여도
+        s.AddObservation(ComputeMyDemandRatio());
+
+        // 4) 이웃 드론 밀집도
+        s.AddObservation(ComputeNeighborDensity());
+
+        // 5) 팀 생존율
+        s.AddObservation(ComputeSurvivalRatio());
     }
 
     public bool debugReward = false;
@@ -212,17 +232,16 @@ public class DroneAgent : Agent
         float qoe = ComputeQoEReward_Aggregated();
         float ene = ComputeEnergyReward();
 
-        // === 개별 보상(λ 반대로) ===
+        // === 개별 보상: qoe * ene (λ 사용 없음) ===
         float indiv = qoe * ene;
-        float stepR = (1f - DroneTeamManager.Lambda) * indiv;
-        AddReward(stepR);
+        AddReward(indiv);
 
         // === 생존 소액 보상 ===
         AddReward(aliveTinyReward);
 
         if (debugReward)
         {
-            Debug.Log($"[Agent {gameObject.name}] QoE={qoe:F3}  Ene={ene:F3}  indiv={indiv:F3}  λ={DroneTeamManager.Lambda:F2}  stepR={(stepR + aliveTinyReward):F4}");
+            Debug.Log($"[Agent {gameObject.name}] QoE={qoe:F3}  Ene={ene:F3}  indiv={indiv:F3}  stepR={(indiv + aliveTinyReward):F4}");
         }
     }
 
@@ -293,6 +312,71 @@ public class DroneAgent : Agent
     {
         if (energyWhInit <= 0f) return 0f;
         return Mathf.Clamp01(energyWh / energyWhInit);
+    }
+
+    // ===== Observation helpers =====
+
+    float ComputeMyDemandRatio()
+    {
+        int srcId = GetSrcId();
+        float myDemand = 0f;
+
+        foreach (var rr in RadioReceiver.All)
+        {
+            if (rr == null) continue;
+
+            var area = rr.GetComponentInParent<DemandArea>();
+            if (area == null || area.kind != AreaKind.Building) continue;
+
+            if (rr.IsConnectedTo(srcId))
+                myDemand += Mathf.Max(0, area.demand);
+        }
+
+        if (totalWeightDenom <= 0f) return 0f;
+        return Mathf.Clamp01(myDemand / totalWeightDenom);
+    }
+
+    float ComputeNeighborDensity()
+    {
+        var agents = FindObjectsOfType<DroneAgent>();
+        if (agents == null || agents.Length == 0) return 0f;
+
+        Vector3 myPos = transform.position;
+        int near = 0;
+
+        for (int i = 0; i < agents.Length; i++)
+        {
+            var a = agents[i];
+            if (a == null || a == this || a.IsEliminated) continue;
+
+            float dist = Vector3.Distance(myPos, a.transform.position);
+            if (dist < 150f) // 맵 스케일에 맞게 조정 가능
+                near++;
+        }
+
+        // 최대 5대 기준 정규화 (필요 시 조정)
+        return Mathf.Clamp01(near / 5f);
+    }
+
+    float ComputeSurvivalRatio()
+    {
+        var agents = FindObjectsOfType<DroneAgent>();
+        if (agents == null || agents.Length == 0) return 0f;
+
+        int total = 0;
+        int alive = 0;
+
+        for (int i = 0; i < agents.Length; i++)
+        {
+            var a = agents[i];
+            if (a == null) continue;
+
+            total++;
+            if (!a.IsEliminated) alive++;
+        }
+
+        if (total == 0) return 0f;
+        return Mathf.Clamp01((float)alive / total);
     }
 
     // ===== 경계 처리 =====
@@ -412,7 +496,7 @@ public class DroneAgent : Agent
         }
     }
 
-    // 호환용 no-op
+    // 호환용 no-op (다른 코드에서 호출해도 에러 방지)
     public void BeginStepAggregation() { }
     public void ReportQoEAndOverlap(float perDroneQoENumerator, int overconnect) { }
 

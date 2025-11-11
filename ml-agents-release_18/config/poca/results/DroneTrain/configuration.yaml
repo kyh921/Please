@@ -30,8 +30,8 @@ behaviors:
           memory: null
           goal_conditioning_type: hyper
     init_path: null
-    keep_checkpoints: 5
-    checkpoint_interval: 500000
+    keep_checkpoints: 50
+    checkpoint_interval: 200000
     max_steps: 50000000
     time_horizon: 128
     summary_freq: 50000
@@ -39,19 +39,19 @@ behaviors:
     self_play: null
     behavioral_cloning: null
 env_settings:
-  env_path: null
+  env_path: C:\Users\ajou\Please\Builds\My project.exe
   env_args: null
   base_port: 5005
-  num_envs: 1
+  num_envs: 8
   seed: -1
 engine_settings:
   width: 84
   height: 84
   quality_level: 5
-  time_scale: 20
+  time_scale: 20.0
   target_frame_rate: -1
   capture_frame_rate: 60
-  no_graphics: false
+  no_graphics: true
 environment_parameters: null
 checkpoint_settings:
   run_id: DroneTrain
