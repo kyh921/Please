@@ -2,22 +2,49 @@
     "DronePoca": {
         "checkpoints": [
             {
-                "steps": 5202,
-                "file_path": "results\\test04\\DronePoca\\DronePoca-5202.onnx",
-                "reward": 319.99575932820636,
-                "creation_time": 1762695021.627221,
+                "steps": 499930,
+                "file_path": "results\\test04\\DronePoca\\DronePoca-499930.onnx",
+                "reward": 1267.5524254639943,
+                "creation_time": 1762698560.3319826,
                 "auxillary_file_paths": [
-                    "results\\test04\\DronePoca\\DronePoca-5202.pt"
+                    "results\\test04\\DronePoca\\DronePoca-499930.pt"
+                ]
+            },
+            {
+                "steps": 999886,
+                "file_path": "results\\test04\\DronePoca\\DronePoca-999886.onnx",
+                "reward": 2732.201535542806,
+                "creation_time": 1762702864.7301857,
+                "auxillary_file_paths": [
+                    "results\\test04\\DronePoca\\DronePoca-999886.pt"
+                ]
+            },
+            {
+                "steps": 1499958,
+                "file_path": "results\\test04\\DronePoca\\DronePoca-1499958.onnx",
+                "reward": 3068.903603831927,
+                "creation_time": 1762707243.925095,
+                "auxillary_file_paths": [
+                    "results\\test04\\DronePoca\\DronePoca-1499958.pt"
+                ]
+            },
+            {
+                "steps": 1606500,
+                "file_path": "results\\test04\\DronePoca\\DronePoca-1606500.onnx",
+                "reward": null,
+                "creation_time": 1762708164.0416996,
+                "auxillary_file_paths": [
+                    "results\\test04\\DronePoca\\DronePoca-1606500.pt"
                 ]
             }
         ],
         "final_checkpoint": {
-            "steps": 5202,
+            "steps": 1606500,
             "file_path": "results\\test04\\DronePoca.onnx",
-            "reward": 319.99575932820636,
-            "creation_time": 1762695021.627221,
+            "reward": null,
+            "creation_time": 1762708164.0416996,
             "auxillary_file_paths": [
-                "results\\test04\\DronePoca\\DronePoca-5202.pt"
+                "results\\test04\\DronePoca\\DronePoca-1606500.pt"
             ]
         }
     },

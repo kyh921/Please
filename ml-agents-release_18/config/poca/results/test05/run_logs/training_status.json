@@ -1,0 +1,29 @@
+{
+    "DronePoca": {
+        "checkpoints": [
+            {
+                "steps": 173619,
+                "file_path": "results\\test05\\DronePoca\\DronePoca-173619.onnx",
+                "reward": 368.5286430676778,
+                "creation_time": 1762835295.2579763,
+                "auxillary_file_paths": [
+                    "results\\test05\\DronePoca\\DronePoca-173619.pt"
+                ]
+            }
+        ],
+        "final_checkpoint": {
+            "steps": 173619,
+            "file_path": "results\\test05\\DronePoca.onnx",
+            "reward": 368.5286430676778,
+            "creation_time": 1762835295.2579763,
+            "auxillary_file_paths": [
+                "results\\test05\\DronePoca\\DronePoca-173619.pt"
+            ]
+        }
+    },
+    "metadata": {
+        "stats_format_version": "0.3.0",
+        "mlagents_version": "0.27.0",
+        "torch_version": "1.13.1+cpu"
+    }
+}
