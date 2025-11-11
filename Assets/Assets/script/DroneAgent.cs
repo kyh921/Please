@@ -29,7 +29,6 @@ public class DroneAgent : Agent
     private int episodeStep = 0;
 
     private Rigidbody _rb;
-    int stepCount;
     public float yawCmdDegPerSec = 0f;
     private DroneController ctrl;
 
@@ -130,13 +129,16 @@ public class DroneAgent : Agent
     public LayerMask obstacleLayers;
     public string[] obstacleTags = new string[] { "Drone", "Building" };
 
+    // ===== 초반 안정화(그레이스 + 생존 소액 보상) =====
+    [Header("Survival shaping")]
+    public int graceSteps = 1000;          // 초반 보호 구간
+    public float aliveTinyReward = 0.002f; // 살아있기만 해도 매 스텝 주는 소액 보상
+    private int globalStep = 0;
+
     // ===== 고정 스폰 설정 =====
     [Header("Fixed Spawn (per agent)")]
-    [Tooltip("이 에이전트가 에피소드 시작 시 위치/회전을 가져올 Transform")]
     public Transform spawnPoint;
-    [Tooltip("spawnPoint의 회전을 사용할지 여부 (끄면 현재 회전 유지)")]
     public bool useSpawnRotation = true;
-    [Tooltip("spawnPoint가 없을 때 높이를 yLimit 범위로 클램프할지 여부")]
     public bool clampYToLimitIfNoSpawnPoint = true;
 
     void Awake()
@@ -155,20 +157,16 @@ public class DroneAgent : Agent
         energyWhInit = (batteryVolt * battery_mAh) / 1000f;
         energyWh = energyWhInit;
 
-        // --- 고정 스폰 로직 ---
         if (spawnPoint != null)
         {
             transform.position = spawnPoint.position;
             if (useSpawnRotation) transform.rotation = spawnPoint.rotation;
         }
-        else
+        else if (clampYToLimitIfNoSpawnPoint)
         {
-            if (clampYToLimitIfNoSpawnPoint)
-            {
-                var p = transform.position;
-                p.y = Mathf.Clamp(p.y, yLimit.x, yLimit.y);
-                transform.position = p;
-            }
+            var p = transform.position;
+            p.y = Mathf.Clamp(p.y, yLimit.x, yLimit.y);
+            transform.position = p;
         }
 
         prevPos = transform.position;
@@ -181,6 +179,7 @@ public class DroneAgent : Agent
 
         RecoverFromElimination();
         episodeStep = 0;
+        globalStep = 0;   // 그레이스 리셋
     }
 
     public override void CollectObservations(VectorSensor s)
@@ -213,13 +212,17 @@ public class DroneAgent : Agent
         float qoe = ComputeQoEReward_Aggregated();
         float ene = ComputeEnergyReward();
 
-        // === 개별 보상만 더한다 (공통 보상 cov는 매니저가 그룹 보상으로 처리) ===
-        float stepR = qoe * ene;
+        // === 개별 보상(λ 반대로) ===
+        float indiv = qoe * ene;
+        float stepR = (1f - DroneTeamManager.Lambda) * indiv;
         AddReward(stepR);
+
+        // === 생존 소액 보상 ===
+        AddReward(aliveTinyReward);
 
         if (debugReward)
         {
-            Debug.Log($"[Agent {gameObject.name}] QoE={qoe:F3}  Ene={ene:F3}  stepR={stepR:F4}");
+            Debug.Log($"[Agent {gameObject.name}] QoE={qoe:F3}  Ene={ene:F3}  indiv={indiv:F3}  λ={DroneTeamManager.Lambda:F2}  stepR={(stepR + aliveTinyReward):F4}");
         }
     }
 
@@ -307,6 +310,8 @@ public class DroneAgent : Agent
 
         if (_isEliminated) return;
 
+        globalStep++;
+
         var p = transform.position;
 
         bool outX = (p.x < xMin) || (p.x > xMax);
@@ -315,9 +320,22 @@ public class DroneAgent : Agent
 
         if (outX || outZ || outY)
         {
-            AddReward(boundaryPenalty);
-            if (eliminateOnFail) Eliminate("boundary");
-            else if (!useGroupEpisodes && endOnBoundary) EndEpisode();
+            if (globalStep < graceSteps)
+            {
+                AddReward(boundaryPenalty * 0.5f);
+
+                var p2 = transform.position;
+                p2.x = Mathf.Clamp(p2.x, xMin + 2f, xMax - 2f);
+                p2.y = Mathf.Clamp(p2.y, yLimit.x + 2f, yLimit.y - 2f);
+                p2.z = Mathf.Clamp(p2.z, zMin + 2f, zMax - 2f);
+                transform.position = p2;
+            }
+            else
+            {
+                AddReward(boundaryPenalty);
+                if (eliminateOnFail) Eliminate("boundary");
+                else if (!useGroupEpisodes && endOnBoundary) EndEpisode();
+            }
         }
     }
 
@@ -330,8 +348,15 @@ public class DroneAgent : Agent
 
         if (isObstacleTag || isObstacleLayer)
         {
-            AddReward(collisionPenalty);
-            Eliminate("collision");
+            if (globalStep < graceSteps)
+            {
+                AddReward(collisionPenalty * 0.5f);
+            }
+            else
+            {
+                AddReward(collisionPenalty);
+                Eliminate("collision");
+            }
         }
     }
 

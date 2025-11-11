@@ -11,10 +11,17 @@ public class DroneTeamManager : MonoBehaviour
     public int groupMaxSteps = 8000;     // 전체 팀 에피소드 길이
     public bool endWhenAllEliminated = true;
 
+    // ===== λ 스케줄(개별→공통 혼합) =====
+    [Header("Reward mix (λ schedule)")]
+    [Range(0f, 1f)] public float lambdaStart = 0f;     // 시작 λ
+    [Range(0f, 1f)] public float lambdaMid   = 0.55f;  // 목표 λ (0.5~0.6 권장)
+    public int lambdaWarmupSteps = 600_000;            // 느린 워밍업
+
+    public static float Lambda { get; private set; } = 0f;
+    private int globalSteps = 0;
+
     private SimpleMultiAgentGroup group;
     private int groupStep;
-
-    // ▼ 추가: 직전 생존 수 추적
     private int lastAliveCount = -1;
 
     void Awake()
@@ -35,11 +42,20 @@ public class DroneTeamManager : MonoBehaviour
         }
 
         groupStep = 0;
+        Lambda = Mathf.Clamp01(lambdaStart);
     }
 
     void FixedUpdate()
     {
-         // 1) 공통 보상: cov 계산
+        // --- λ 스케줄 업데이트 (선형) ---
+        if (lambdaWarmupSteps > 0 && Lambda < lambdaMid)
+        {
+            float t = Mathf.Clamp01((float)globalSteps / lambdaWarmupSteps);
+            Lambda = Mathf.Lerp(lambdaStart, lambdaMid, t);
+        }
+        globalSteps++;
+
+        // 1) 공통 보상: cov 계산
         float cov = DroneAgent.ComputeCoverageRewardForScene();
 
         // 2) 생존율 계산
@@ -52,18 +68,23 @@ public class DroneTeamManager : MonoBehaviour
         }
         float surv = (N > 0) ? (float)alive / N : 0f;
 
-        // 3) 사망 이벤트 감지 → 즉시 큰 패널티
+        // --- 생존 기반 가드: 생존율이 떨어지면 λ를 즉시 낮은 값으로 캡 ---
+        if (surv < 0.90f)
+            Lambda = Mathf.Min(Lambda, 0.40f);
+
+        // 3) 사망 이벤트 감지 → 초반/다수 사망일수록 더 큰 패널티
         if (lastAliveCount >= 0 && alive < lastAliveCount)
         {
-            // 방해 자살형 정책 방지용 원샷 패널티
-            group.AddGroupReward(-0.5f * (lastAliveCount - alive));
+            int deaths = lastAliveCount - alive;
+            float tRemain = (groupMaxSteps > 0) ? (groupMaxSteps - groupStep) / (float)groupMaxSteps : 1f;
+            float popFactor = (N > 0) ? (float)lastAliveCount / N : 1f;
+            float deathPenalty = -1.0f * deaths * (0.5f + 0.5f * tRemain) * (0.5f + 0.5f * popFactor);
+            group.AddGroupReward(deathPenalty);
         }
         lastAliveCount = alive;
 
-        // 4) 그룹 보상 구성
-        //    - cov에 생존 가중 적용
-        //    - 생존 유지 보상(소량) 추가
-        float groupR = (cov * surv) + 0.1f * surv;
+        // 4) 그룹 보상 구성 (생존 가중 + 생존 유지 보상)
+        float groupR = Lambda * ((cov * surv) + 0.1f * surv);
         group.AddGroupReward(groupR);
 
         groupStep++;
@@ -77,19 +98,10 @@ public class DroneTeamManager : MonoBehaviour
             lastAliveCount = -1;
         }
 
-        // 선택: 한 명이라도 탈락하면 즉시 종료하고 싶다면 아래 라인 사용
-        // if (alive < N) { group.EndGroupEpisode(); groupStep = 0; lastAliveCount = -1; }
-    }
-
-    bool AreAllEliminated()
-    {
-        bool any = false;
-        foreach (var a in agents)
+        // --- 1초마다 상태 로그 ---
+        if (Time.frameCount % 60 == 0)
         {
-            if (a == null) continue;
-            any = true;
-            if (!a.IsEliminated) return false;
+            Debug.Log($"[Team] step={globalSteps} λ={Lambda:F2} cov={cov:F3} surv={surv:F2} groupR={groupR:F3} alive={alive}/{N}");
         }
-        return any; // 하나라도 있었다면 모두 탈락
     }
 }
