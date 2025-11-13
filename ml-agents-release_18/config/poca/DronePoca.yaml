@@ -30,4 +30,4 @@ engine_settings:
 
 env_settings:
   env_path: "C:\\Users\\ajou\\My project\\Please\\Builds\\My project.exe"
-  num_envs: 4
+  num_envs: 8

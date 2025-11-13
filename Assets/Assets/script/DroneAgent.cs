@@ -417,8 +417,21 @@ public class DroneAgent : Agent
             else
             {
                 AddReward(boundaryPenalty);
-                if (eliminateOnFail) Eliminate("boundary");
-                else if (!useGroupEpisodes && endOnBoundary) EndEpisode();
+
+                if (eliminateOnFail)
+                {
+                    Eliminate("boundary");
+
+                    // ★ 개별 에피소드 모드라면 경계 위반 시 바로 종료
+                    if (!useGroupEpisodes && endOnBoundary)
+                        EndEpisode();
+                }
+                else
+                {
+                    // eliminateOnFail=false인 경우에도 설정에 따라 종료
+                    if (!useGroupEpisodes && endOnBoundary)
+                        EndEpisode();
+                }
             }
         }
     }
@@ -440,6 +453,10 @@ public class DroneAgent : Agent
             {
                 AddReward(collisionPenalty);
                 Eliminate("collision");
+
+                // ★ 개별 에피소드 모드라면 충돌 시 바로 종료
+                if (!useGroupEpisodes && endOnCollision)
+                    EndEpisode();
             }
         }
     }
@@ -448,6 +465,10 @@ public class DroneAgent : Agent
     {
         if (_isEliminated) return;
         _isEliminated = true;
+
+         // ★ 사망 정책 적용: Manager가 개별/팀 패널티 및 종료를 결정
+        if (DroneTeamManager.Instance != null)
+        DroneTeamManager.Instance.NotifyAgentEliminated(this, reason);
 
         if (disableControllerAndSensorOnElim)
         {

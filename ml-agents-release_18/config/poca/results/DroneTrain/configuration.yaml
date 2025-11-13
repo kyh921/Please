@@ -39,7 +39,7 @@ behaviors:
     self_play: null
     behavioral_cloning: null
 env_settings:
-  env_path: C:\Users\ajou\Please\Builds\My project.exe
+  env_path: C:\Users\ajou\My project\Please\Builds\My project.exe
   env_args: null
   base_port: 5005
   num_envs: 8
