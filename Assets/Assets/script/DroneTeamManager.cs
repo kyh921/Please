@@ -19,6 +19,11 @@ public class DroneTeamManager : MonoBehaviour
     private int groupStep;
     private int lastAliveCount = -1;
 
+
+
+
+
+
     void Awake()
     {
         if (agents == null || agents.Count == 0)
@@ -41,47 +46,34 @@ public class DroneTeamManager : MonoBehaviour
 
     void FixedUpdate()
     {
-        // 1) 그룹 보상: cov만 사용
-        float cov = DroneAgent.ComputeCoverageRewardForScene();
-        float groupR = cov;
+        // 1) (선택) 팀 커버리지에 대한 '양의' 그룹 보상은 유지
+        float covTeam = DroneAgent.ComputeCoverageRewardForScene();
+        float groupR = covTeam / Mathf.Max(1, groupMaxSteps);
         group.AddGroupReward(groupR);
 
-        // 2) 생존 상태 확인 및 조기 종료
-        int N = 0, alive = 0;
+        // 2) 생존 상태 확인
+        int alive = 0;
         foreach (var a in agents)
-        {
-            if (a == null) continue;
-            N++;
-            if (!a.IsEliminated) alive++;
-        }
+            if (a != null && !a.IsEliminated) alive++;
 
+        // ★ 3) 한 명이라도 줄어들었고, endOnAnyElimination이면 "패널티 없이" 즉시 종료
         if (lastAliveCount >= 0 && alive < lastAliveCount && endOnAnyElimination)
         {
+            // 팀 패널티/개별 패널티 절대 부여하지 않음
             group.EndGroupEpisode();
             groupStep = 0;
             lastAliveCount = -1;
-
-            // (선택) 간단 로그
-            if (Time.frameCount % 60 == 0)
-                Debug.Log($"[Team] early-terminated: a death occurred. cov={cov:F3} alive={alive}/{N}");
-            return; // 이번 스텝의 나머지 계산 생략
+            return;
         }
         lastAliveCount = alive;
 
-        // 3) 일반 종료 조건
+        // 4) 일반 종료
         groupStep++;
-        if ((groupMaxSteps > 0 && groupStep >= groupMaxSteps) ||
-            (endWhenAllEliminated && alive == 0))
+        if ((groupMaxSteps > 0 && groupStep >= groupMaxSteps) || (endWhenAllEliminated && alive == 0))
         {
             group.EndGroupEpisode();
             groupStep = 0;
             lastAliveCount = -1;
-        }
-
-        // (선택) 1초마다 상태 로그
-        if (Time.frameCount % 60 == 0)
-        {
-            Debug.Log($"[Team] step={groupStep} cov={cov:F3} alive={alive}/{N}");
         }
     }
 }

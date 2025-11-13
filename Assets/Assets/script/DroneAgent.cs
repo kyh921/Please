@@ -12,6 +12,8 @@ public class DroneAgent : Agent
     [SerializeField] bool drainBySteps = true;
     [SerializeField] float secondsPerStepForEnergy = 0.02f;
 
+
+
     [Header("Elimination (no instant respawn)")]
     public bool eliminateOnFail = true;
     public bool freezeRigidbodyOnElim = true;
@@ -21,6 +23,32 @@ public class DroneAgent : Agent
     private bool _isEliminated = false;
     private Collider[] _allColliders;
     private Renderer[] _allRenderers;
+
+    // DroneAgent.cs (상단 필드)
+    [Header("Separation penalty")]
+    public float minSeparation = 120f;           // 이 거리보다 가까워지면 패널티 시작
+    public float hardSeparation = 60f;           // 매우 가까우면 더 큰 패널티
+    public float proximityPenaltyScale = 0.05f;  // 연속 패널티 강도(스텝당)
+    public float hardProximityPenalty = -0.5f;   // 하드 근접(붙음) 시 추가 패널티
+
+    float ComputeMinNeighborDistance()
+    {
+        var agents = FindObjectsOfType<DroneAgent>();
+        if (agents == null || agents.Length == 0) return float.PositiveInfinity;
+
+        Vector3 myPos = transform.position;
+        float best = float.PositiveInfinity;
+
+        for (int i = 0; i < agents.Length; i++)
+        {
+            var a = agents[i];
+            if (a == null || a == this || a.IsEliminated) continue;
+
+            float d = Vector3.Distance(myPos, a.transform.position);
+            if (d < best) best = d;
+        }
+        return best;
+    }
 
     [Header("Episode control")]
     [Tooltip("그룹 에피소드(멀티에이전트)를 사용할 때 체크. 체크 시 이 스크립트는 EndEpisode를 스스로 호출하지 않습니다.")]
@@ -118,12 +146,12 @@ public class DroneAgent : Agent
 
     // ===== 경계/충돌 =====
     [Header("Collision & Boundary")]
-    public float collisionPenalty = -0.5f;
+    public float collisionPenalty = -5f;
     public bool endOnCollision = true;
     public float xMin = -650f, xMax = 60f;
     public float zMin = -1100f, zMax = -50f;
     public Vector2 yLimit = new Vector2(0f, 300f);
-    public float boundaryPenalty = -0.2f;
+    public float boundaryPenalty = -5f;
     public bool endOnBoundary = true;
 
     public LayerMask obstacleLayers;
@@ -199,8 +227,8 @@ public class DroneAgent : Agent
         s.AddObservation(Mathf.Clamp01(energyRatio));
 
         // 2) 글로벌 커버리지(팀 스칼라)
-        float cov = ComputeCoverageRewardForScene();
-        s.AddObservation(cov);
+        float covteam = ComputeUniqueCoverageRewardForScene();
+        s.AddObservation(covteam);
 
         // 3) 내 UE demand 기여도
         s.AddObservation(ComputeMyDemandRatio());
@@ -214,6 +242,28 @@ public class DroneAgent : Agent
 
     public bool debugReward = false;
 
+    public static float ComputeUniqueCoverageRewardForScene()
+    {
+        float totalDemand = 0f;
+        float uniqueCovered = 0f;
+
+        foreach (var rr in RadioReceiver.All)
+        {
+            if (rr == null) continue;
+
+            var area = rr.GetComponentInParent<DemandArea>();
+            if (area == null || area.kind != AreaKind.Building) continue;
+
+            int demand = Mathf.Max(0, area.demand);
+            totalDemand += demand;
+
+            // ★ 오직 1대 드론만 연결된 UE만 커버리지로 인정
+            if (rr.ConnectedSourceCount == 1)
+                uniqueCovered += demand;
+        }
+
+        return (totalDemand > 0f) ? (uniqueCovered / totalDemand) : 0f;
+    }
     public override void OnActionReceived(ActionBuffers actions)
     {
         if (_isEliminated) return;
@@ -231,17 +281,60 @@ public class DroneAgent : Agent
 
         float qoe = ComputeQoEReward_Aggregated();
         float ene = ComputeEnergyReward();
+        float cov = 5f*ComputeMyDemandRatio();
 
         // === 개별 보상: qoe * ene (λ 사용 없음) ===
-        float indiv = qoe * ene;
+        float indiv = qoe * cov * ene ;
         AddReward(indiv);
 
         // === 생존 소액 보상 ===
         AddReward(aliveTinyReward);
 
+        // === 드론 간 근접(붙어있음) 패널티 ===
+        // 아래 파라미터들은 클래스 상단에 직렬화 필드로 두면 인스펙터에서 조절 가능합니다.
+        // public float minSeparation = 120f;
+        // public float hardSeparation = 60f;
+        // public float proximityPenaltyScale = 0.01f;
+        // public float hardProximityPenalty = -0.2f;
+
+        float dMin = float.PositiveInfinity;
+        var agents = FindObjectsOfType<DroneAgent>();
+        if (agents != null && agents.Length > 0)
+        {
+            Vector3 myPos = transform.position;
+            for (int i = 0; i < agents.Length; i++)
+            {
+                var other = agents[i];
+                if (other == null || other == this || other.IsEliminated) continue;
+                float d = Vector3.Distance(myPos, other.transform.position);
+                if (d < dMin) dMin = d;
+            }
+        }
+
+        if (dMin < minSeparation)
+        {
+            // 선형 패널티: minSeparation 밖에서는 0, 안으로 들어올수록 커짐
+            float denom = Mathf.Max(1f, minSeparation - hardSeparation);
+            float ratio = Mathf.Clamp01((minSeparation - dMin) / denom);
+            float softPen = -proximityPenaltyScale * ratio;   // 스텝당 작은 페널티
+            AddReward(softPen);
+
+            // 하드 근접(붙음) 시 추가 큰 페널티 1회
+            if (dMin < hardSeparation)
+            {
+                AddReward(hardProximityPenalty);
+                if (debugReward)
+                    Debug.Log($"[Agent {gameObject.name}] HARD proximity penalty {hardProximityPenalty:F3} (dMin={dMin:F1})");
+            }
+
+            if (debugReward)
+                Debug.Log($"[Agent {gameObject.name}] proximity penalty {softPen:F4} (dMin={dMin:F1})");
+        }
+
         if (debugReward)
         {
-            Debug.Log($"[Agent {gameObject.name}] QoE={qoe:F3}  Ene={ene:F3}  indiv={indiv:F3}  stepR={(indiv + aliveTinyReward):F4}");
+            float stepR = indiv + aliveTinyReward; // 근접 패널티는 AddReward에 누적됨
+            Debug.Log($"[Agent {gameObject.name}] QoE={qoe:F3}  Ene={ene:F3}  indiv={indiv:F3}  stepR~={(stepR):F4}");
         }
     }
 
@@ -251,7 +344,7 @@ public class DroneAgent : Agent
     {
         int srcId = GetSrcId();
         float num = 0f;
-        float denom = 0.7f * totalWeightDenom;
+        float denom = totalWeightDenom;
 
         foreach (var rr in RadioReceiver.All)
         {
@@ -277,8 +370,6 @@ public class DroneAgent : Agent
     {
         float totalDemand = 0f;
         float coveredDemand = 0f;
-        float sumOver = 0f;
-        int overCount = 0;
 
         foreach (var rr in RadioReceiver.All)
         {
@@ -290,22 +381,12 @@ public class DroneAgent : Agent
             int demand = Mathf.Max(0, area.demand);
             totalDemand += demand;
 
-            int k = rr.ConnectedSourceCount;
-            if (k > 0) coveredDemand += demand;
-
-            int over = Mathf.Max(0, k - 1);
-            if (over > 0)
-            {
-                sumOver += over;
-                overCount++;
-            }
+            // "turn on" = 임계 이상으로 연결된 드론이 하나라도 있는 경우
+            if (rr.ConnectedSourceCount > 0)
+                coveredDemand += demand;
         }
 
-        float tau = (totalDemand > 0f) ? (coveredDemand / totalDemand) : 0f;
-        float w = (overCount > 0) ? (sumOver / overCount) : 0f;
-
-        float cov = (2.0f * tau) / (1f + (0.5f * w));
-        return Mathf.Clamp01(cov);
+        return (totalDemand > 0f) ? (coveredDemand / totalDemand) : 0f;
     }
 
     float ComputeEnergyReward()
@@ -319,21 +400,24 @@ public class DroneAgent : Agent
     float ComputeMyDemandRatio()
     {
         int srcId = GetSrcId();
-        float myDemand = 0f;
+        float myUnique = 0f;
+        float total = 0f;
 
         foreach (var rr in RadioReceiver.All)
         {
             if (rr == null) continue;
-
             var area = rr.GetComponentInParent<DemandArea>();
             if (area == null || area.kind != AreaKind.Building) continue;
 
-            if (rr.IsConnectedTo(srcId))
-                myDemand += Mathf.Max(0, area.demand);
+            int d = Mathf.Max(0, area.demand);
+            total += d;
+
+            // 나만 연결한 UE만 인정
+            if (rr.ConnectedSourceCount == 1 && rr.IsConnectedTo(srcId))
+                myUnique += d;
         }
 
-        if (totalWeightDenom <= 0f) return 0f;
-        return Mathf.Clamp01(myDemand / totalWeightDenom);
+        return (total > 0f) ? Mathf.Clamp01(myUnique / total) : 0f;
     }
 
     float ComputeNeighborDensity()
@@ -432,15 +516,11 @@ public class DroneAgent : Agent
 
         if (isObstacleTag || isObstacleLayer)
         {
-            if (globalStep < graceSteps)
-            {
-                AddReward(collisionPenalty * 0.5f);
-            }
-            else
-            {
-                AddReward(collisionPenalty);
-                Eliminate("collision");
-            }
+            // ★ 충돌한 "해당 드론"에게만 패널티
+            AddReward(collisionPenalty);
+
+            // 탈락 및 연결 해제
+            Eliminate("collision");
         }
     }
 
