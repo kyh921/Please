@@ -147,10 +147,11 @@ public class DroneAgent : Agent
     public bool useSpawnRotation = true;
     public bool clampYToLimitIfNoSpawnPoint = true;
 
+    public bool debugReward = false;
+
     void Awake()
     {
         ctrl = GetComponent<DroneController>();
-        if (sensor == null) sensor = GetComponentInChildren<RadioReceiver>();
         _rb = GetComponent<Rigidbody>();
         prevPos = transform.position;
 
@@ -168,12 +169,15 @@ public class DroneAgent : Agent
             transform.position = spawnPoint.position;
             if (useSpawnRotation) transform.rotation = spawnPoint.rotation;
         }
-        else if (clampYToLimitIfNoSpawnPoint)
+
+        /*
+         else if (clampYToLimitIfNoSpawnPoint)
         {
             var p = transform.position;
             p.y = Mathf.Clamp(p.y, yLimit.x, yLimit.y);
             transform.position = p;
         }
+        */
 
         prevPos = transform.position;
 
@@ -184,8 +188,15 @@ public class DroneAgent : Agent
         totalWeightDenom = Mathf.Max(1f, totalWeight);
 
         RecoverFromElimination();
+
         episodeStep = 0;
         globalStep = 0;   // 그레이스 리셋
+
+        var comms = GetComponent<CommsSensor>();
+        if (comms != null) comms.ResetSensor();
+
+        foreach (var rr in RadioReceiver.All)
+            rr.ResetConnections();
     }
 
     public override void CollectObservations(VectorSensor s)
@@ -216,9 +227,11 @@ public class DroneAgent : Agent
 
         // 5) 팀 생존율
         s.AddObservation(ComputeSurvivalRatio());
+
+        float tNorm = (float)episodeStep / episodeMaxSteps;
+        s.AddObservation(tNorm);
     }
 
-    public bool debugReward = false;
 
     public override void OnActionReceived(ActionBuffers actions)
     {
@@ -242,7 +255,7 @@ public class DroneAgent : Agent
         float indiv = qoe * ene;
         AddReward(indiv);
 
-        // === 생존 소액 보상 ===
+        // === 생존 소액 보상 === 
         AddReward(aliveTinyReward);
 
         if (debugLog)
@@ -260,38 +273,55 @@ public class DroneAgent : Agent
 
     // ===== Reward terms =====
 
+    [SerializeField] float qoeNormalize = 5f; // "이 정도 QoE면 1.0 근처"라고 보는 기준값
+
     float ComputeQoEReward_Aggregated()
     {
         int srcId = GetSrcId();
-        float num = 0f;
-        float denom = 0.7f * totalWeightDenom;
+
+        float sumWeightedQoe = 0f; // ∑(qoe * demand)
+        float sumDemand = 0f;      // ∑(demand)  (내가 실제로 서비스 중인 UE들만)
 
         foreach (var rr in RadioReceiver.All)
         {
             if (rr == null) continue;
 
+            // 건물 UE만 대상으로
             var area = rr.GetComponentInParent<DemandArea>();
             if (area == null || area.kind != AreaKind.Building) continue;
 
-            int demand = Mathf.Max(0, area.demand);
+            // 이 드론과 연결된 UE만 본다 (SINR ≥ threshold)
+            if (!rr.IsConnectedTo(srcId)) continue;
 
-            if (rr.IsConnectedTo(srcId))
-            {
-                float qoe = Mathf.Max(0f, rr.GetQoEFor(srcId));
-                num += qoe * demand;
-            }
+            int demand = Mathf.Max(0, area.demand);
+            if (demand <= 0) continue;
+
+            // UE별 log QoE (이미 RadioReceiver에서 계산된 값)
+            float qoe = Mathf.Max(0f, rr.GetQoEFor(srcId));
+
+            sumWeightedQoe += qoe * demand;
+            sumDemand += demand;
         }
 
-        if (denom <= 0f) return 0f;
-        return Mathf.Clamp01(num / denom);
+        // 내가 지금 아무 UE도 커버하지 않으면 QoE = 0
+        if (sumDemand <= 0f)
+            return 0f;
+
+        // (1) 내가 실제로 서비스 중인 UE들에 대한 demand-weighted 평균 QoE
+        float avgQoe = sumWeightedQoe / sumDemand;
+
+        // (2) 기준값(qoeNormalize)으로 나눠서 0~1 근처로 정규화
+        if (qoeNormalize <= 0f) qoeNormalize = 1f; // 보호용
+        float normQoe = avgQoe / qoeNormalize;
+
+        // (3) RL용 보상: 0~1 범위로 클램프
+        return Mathf.Clamp01(normQoe);
     }
 
     public static float ComputeCoverageRewardForScene()
     {
-        float totalDemand = 0f;
-        float coveredDemand = 0f;
-        float sumOver = 0f;
-        int overCount = 0;
+        int connectedUE = 0;      // k >= 1
+        int uniqueUE = 0;         // k == 1
 
         foreach (var rr in RadioReceiver.All)
         {
@@ -300,24 +330,25 @@ public class DroneAgent : Agent
             var area = rr.GetComponentInParent<DemandArea>();
             if (area == null || area.kind != AreaKind.Building) continue;
 
-            int demand = Mathf.Max(0, area.demand);
-            totalDemand += demand;
-
             int k = rr.ConnectedSourceCount;
-            if (k > 0) coveredDemand += demand;
 
-            int over = Mathf.Max(0, k - 1);
-            if (over > 0)
+            if (k >= 1)
             {
-                sumOver += over;
-                overCount++;
+                connectedUE++;
+
+                // 정확히 1대의 드론만 연결된 경우 → 고품질 커버
+                if (k == 1)
+                    uniqueUE++;
             }
         }
 
-        float tau = (totalDemand > 0f) ? (coveredDemand / totalDemand) : 0f;
-        float w = (overCount > 0) ? (sumOver / overCount) : 0f;
+        // 연결된 UE가 없다면 COV = 0
+        if (connectedUE == 0)
+            return 0f;
 
-        float cov = (2.0f * tau) / (1f + (0.5f * w));
+        // COV = uniqueUE / connectedUE
+        float cov = (float)uniqueUE / connectedUE;
+
         return Mathf.Clamp01(cov);
     }
 
@@ -447,7 +478,7 @@ public class DroneAgent : Agent
         {
             if (globalStep < graceSteps)
             {
-                AddReward(collisionPenalty * 0.5f);
+                AddReward(collisionPenalty);
             }
             else
             {
@@ -516,10 +547,14 @@ public class DroneAgent : Agent
         {
             foreach (var c in _allColliders) if (c) c.enabled = true;
         }
+        if (_allRenderers != null)
+        {
+            foreach (var r in _allRenderers)
+                if (r) r.enabled = true;
+        }
     }
 
-    // 호환용 no-op (다른 코드에서 호출해도 에러 방지)
-    public void BeginStepAggregation() { }
+
     
 
     public override void Heuristic(in ActionBuffers actionsOut)

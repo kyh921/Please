@@ -42,7 +42,7 @@ public class CommsSensor : MonoBehaviour
         CacheUEs();
 
         // reset per-step accumulators on the agent
-        _agent.BeginStepAggregation();
+
 
         linkableCount = 0;
         maxOverlapThisFrame = 0;
@@ -80,5 +80,14 @@ public class CommsSensor : MonoBehaviour
 
         _ues.Clear();
         _ues.AddRange(Object.FindObjectsOfType<RadioReceiver>(true));
+    }
+
+    public void ResetSensor()
+    {
+        linkableCount = 0;
+        maxOverlapThisFrame = 0;
+        sumQoEThisFrame = 0f;
+        _t = 0f;
+        _cacheFrame = -1;
     }
 }

@@ -211,6 +211,16 @@ public class RadioReceiver : MonoBehaviour
         return rn ? rn.GetRxPosition() : transform.position;
     }
 
+    public void ResetConnections()
+    {
+        _connectedSrc.Clear();   // 실제 연결 리스트 초기화
+        _qoeBySrc.Clear();       // 드론별 QoE 기록 초기화
+        _sumWeighted.Clear();    // 누적된 QoE 합산값 초기화
+
+        LastQoE = 0f;
+        recvPackets = 0;
+    }
+
 #if UNITY_EDITOR
     // 씬에서 선택 시 안테나 위치를 시각화 (디버깅 편의)
     void OnDrawGizmosSelected()
