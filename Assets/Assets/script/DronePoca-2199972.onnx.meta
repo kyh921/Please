@@ -1,5 +1,9 @@
 fileFormatVersion: 2
+<<<<<<<< HEAD:Assets/Assets/script/DronePoca-2199972.onnx.meta
 guid: 6c7373e69f776b2478e341798bf670e0
+========
+guid: 34d614c01423a424b9ee46700c74a5fd
+>>>>>>>> origin/1111sy:Assets/Assets/script/DronePoca-21399899.onnx.meta
 ScriptedImporter:
   internalIDToNameTable: []
   externalObjects: {}
