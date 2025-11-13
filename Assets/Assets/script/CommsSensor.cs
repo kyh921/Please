@@ -70,7 +70,7 @@ public class CommsSensor : MonoBehaviour
         // If you prefer to clear all UE state at frame end, call ResetAggregation() from a manager.
 
         if (debugLog) Debug.Log($"[Pull] src={_droneId}  ¥Ò(weightedQoE)={sumQoEThisFrame:F3},  maxOverlap={maxOverlapThisFrame}");
-        _agent.ReportQoEAndOverlap(sumQoEThisFrame, maxOverlapThisFrame);
+        
     }
 
     static void CacheUEs()

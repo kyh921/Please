@@ -22,7 +22,7 @@ public class RadioReceiver : MonoBehaviour
 
     [Header("Threshold (dB)")]
     [Tooltip("이 값 이상일 때 '연결'로 간주 (overconnect 계산에 사용)")]
-    public float rxThresholdSinrDb = 10.0f; // 疫꿸퀡��: 0 dB
+    public float rxThresholdSinrDb = 0.0f; // 疫꿸퀡��: 0 dB
 
     [Header("Metric Mode")]
     [Tooltip("드론으로 넘길 지표 선택: A_l(Mbps) 또는 QoE=log(237*A_l-216.6)")]

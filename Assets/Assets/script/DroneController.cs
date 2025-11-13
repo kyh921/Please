@@ -59,13 +59,28 @@ public class DroneController : MonoBehaviour
 
         // Soft clamp altitude
         float y = rb.position.y;
-        if (y < minAltitude) rb.position = new Vector3(rb.position.x, minAltitude, rb.position.z);
-        if (y > maxAltitude) rb.position = new Vector3(rb.position.x, maxAltitude, rb.position.z);
+        if (y < minAltitude)
+        {
+            rb.AddForce(Vector3.up * horizontalAccel, ForceMode.Acceleration);
+        }
+        else if (y > maxAltitude)
+        {
+            rb.AddForce(Vector3.down * horizontalAccel, ForceMode.Acceleration);
+        }
 
         // Soft clamp XY bounds
-        float x = Mathf.Clamp(rb.position.x, xBounds.x, xBounds.y);
-        float z = Mathf.Clamp(rb.position.z, zBounds.x, zBounds.y);
-        rb.position = new Vector3(x, rb.position.y, z);
+        float x = rb.position.x;
+        float z = rb.position.z;
+
+        if (x < xBounds.x)
+            rb.AddForce(Vector3.right * horizontalAccel, ForceMode.Acceleration);
+        else if (x > xBounds.y)
+            rb.AddForce(Vector3.left * horizontalAccel, ForceMode.Acceleration);
+
+        if (z < zBounds.x)
+            rb.AddForce(Vector3.forward * horizontalAccel, ForceMode.Acceleration);
+        else if (z > zBounds.y)
+            rb.AddForce(Vector3.back * horizontalAccel, ForceMode.Acceleration);
     }
 
     public Vector3 CurrentVelocity() => rb.velocity;

@@ -3,16 +3,17 @@ using System.Collections.Generic;
 using UnityEngine;
 
 /// <summary>
-/// 통신 모델 스크립트
+/// 통신 모델 (Hata 기반 + 균일 초과 손실 적용)
 /// </summary>
 public class RadioLinkModel : MonoBehaviour
 {
     [Header("RF Parameters")]
 
-    // 사용 주파수 700 MHz 
+    // 주파수 (MHz)
     const double frequencyMHz = 700.0;
-    // 배경 노이즈 (상수값)
-    const double noisePowerMw = 1.2589254117941673e-10; // mW 단위로 변환
+    // 배경 노이즈 (상수, -99 dBm 수준)
+    const double noisePowerMw = 1.2589254117941673e-10; // mW
+
     // 송신 안테나 게인(Gmax, dBi)
     public static double Gpeak_dBi = 2.0;
     // 송신 전력 (dBm)
@@ -20,14 +21,17 @@ public class RadioLinkModel : MonoBehaviour
     // 수신 안테나 게인 (dBi)
     public static double Grx_dBi = 0.0;
 
-    public List<Vector3> txPositions; // 송신기 위치 리스트
-    public List<float> txHeights;     // 송신기 안테나 높이 (m)
-    public List<Vector3> rxPositions; // 수신기 위치 리스트
-    public List<float> rxHeights;     // 수신기 안테나 높이 (m)
+    [Header("Environment Loss (uniform)")]
+    [Tooltip("모든 링크에 균일 적용되는 초과 경로손실(클러터/침투/환경 보정, dB)")]
+    public double extraLossDb = 20.0;   // 10~30 dB 권장
 
+    public List<Vector3> txPositions; // 송신기 위치 리스트
+    public List<float> txHeights;     // 송신 안테나 높이
+    public List<Vector3> rxPositions; // 수신기 위치 리스트
+    public List<float> rxHeights;     // 수신 안테나 높이
 
     /// <summary>
-    /// 모든 송수신기 쌍별 거리와 각도(고도각) 반환
+    /// 송수신기 쌍별 거리 및 고도각 계산
     /// </summary>
     public void GetAllDistancesAndAngles(out double[,] distances, out double[,] angles)
     {
@@ -42,13 +46,10 @@ public class RadioLinkModel : MonoBehaviour
             {
                 Vector3 tx = txPositions[i];
                 Vector3 rx = rxPositions[j];
-
-                //  실제 거리 (스케일링 금지)
                 double d = Vector3.Distance(tx, rx);
                 if (d < 1e-3) d = 1e-3;
                 distances[i, j] = d;
 
-                //  도넛패턴용 각도: 수직축 기준 θ = atan2(horizontal, |Δy|)
                 Vector3 diff = rx - tx;
                 double dy = Math.Abs(diff.y);
                 double h = Math.Sqrt(diff.x * diff.x + diff.z * diff.z);
@@ -56,14 +57,12 @@ public class RadioLinkModel : MonoBehaviour
             }
         }
     }
+
     /// <summary>
-    /// 모든 송수신기 쌍에 대해 Hata 모델 경로 손실 계산 (도시, 200~1500 MHz)
+    /// Hata 모델 기반 경로 손실 계산 (Uniform 추가 손실 포함)
     /// </summary>
     public double[,] GetAllHataLosses()
     {
-        // 네 환경에 맞춘 스케일. (원래 30, 50, 70 쓰던 그 값)
-        const double distanceScale = 4.0;  // ← 네가 원하던 스케일 값
-
         int txCount = txPositions.Count;
         int rxCount = rxPositions.Count;
         GetAllDistancesAndAngles(out var distances, out _);
@@ -74,21 +73,20 @@ public class RadioLinkModel : MonoBehaviour
         {
             for (int j = 0; j < rxCount; j++)
             {
-                double hB = txHeights[i];
-                double hM = rxHeights[j];
+                double hB = Math.Max(1.0, txHeights[i]);
+                double hM = Math.Max(1.0, rxHeights[j]);
+                double d_km = Math.Max(1e-4, distances[i, j] / 1000.0);
 
-                // 경로손실에만 거리 스케일 적용
-                double d_km = (distances[i, j] * distanceScale) / 1000.0;
-                if (d_km < 1e-4) d_km = 1e-4;
-
+                // Urban Hata model (150~1500 MHz)
                 double cH = 3.2 * Math.Pow(Math.Log10(11.75 * hM), 2.0) - 4.97;
                 double lossDb = 69.55
-                    + 26.16 * Math.Log10(700.0)
+                    + 26.16 * Math.Log10(frequencyMHz)
                     - 13.82 * Math.Log10(hB)
                     - cH
                     + (44.9 - 6.55 * Math.Log10(hB)) * Math.Log10(d_km);
 
-                lossMatrix[i, j] = lossDb;
+                // 균일 초과 손실 (ITU-R P.2108 / P.2109, 3GPP TR 38.901 O2I)
+                lossMatrix[i, j] = lossDb + extraLossDb;
             }
         }
         return lossMatrix;
@@ -101,33 +99,28 @@ public class RadioLinkModel : MonoBehaviour
     {
         double sinTheta = Math.Sin(thetaRad);
         double sin2 = sinTheta * sinTheta;
-        if (sin2 <= 0.0) sin2 = 1e-8; // 방어
-        double gainDbi = Gpeak_dBi + 10.0 * Math.Log10(sin2);
-        return gainDbi;
+        if (sin2 <= 0.0) sin2 = 1e-8;
+        return Gpeak_dBi + 10.0 * Math.Log10(sin2);
     }
 
     /// <summary>
-    /// 모든 송신기-수신기 쌍에 대해 안테나 이득 계산
+    /// 송신기-수신기별 안테나 이득 행렬
     /// </summary>
-    /// 
-  
     public double[,] GetAllTxAntennaGains(double[,] angles)
     {
         int txCount = angles.GetLength(0);
         int rxCount = angles.GetLength(1);
         double[,] gains = new double[txCount, rxCount];
+
         for (int i = 0; i < txCount; i++)
-        {
             for (int j = 0; j < rxCount; j++)
-            {
                 gains[i, j] = GetAntennaGainDbi(angles[i, j]);
-            }
-        }
+
         return gains;
     }
 
     /// <summary>
-    /// 모든 송신기-수신기 쌍에 대해 수신 전력 계산(dBm 단위)
+    /// 수신 전력 계산 (dBm)
     /// </summary>
     public double[,] GetAllRxPowers(double[,] angles, double[,] pathLosses)
     {
@@ -147,7 +140,7 @@ public class RadioLinkModel : MonoBehaviour
     }
 
     /// <summary>
-    /// 수신 전력(dBm) → mW 단위 변환
+    /// dBm → mW 변환
     /// </summary>
     public static double[,] ConvertRxPowersToMw(double[,] rxPowers_dBm)
     {
@@ -163,11 +156,8 @@ public class RadioLinkModel : MonoBehaviour
     }
 
     /// <summary>
-    /// SINR 계산 (선형, dB 동시 리턴)
+    /// SINR 계산 (linear, dB)
     /// </summary>
-    /// 
-
-    
     public (double[,] linear, double[,] dB) GetAllSINR(double[,] rxPowers_mW)
     {
         int txCount = rxPowers_mW.GetLength(0);
@@ -182,11 +172,11 @@ public class RadioLinkModel : MonoBehaviour
                 double signal = rxPowers_mW[i, l];
                 double interference = 0.0;
                 for (int k = 0; k < txCount; k++)
-                {
                     if (k != i)
                         interference += rxPowers_mW[k, l];
-                }
-                double sinr = signal / (noisePowerMw + (0f * interference));
+
+                // 현재는 간섭 항 0배 (학습 안정용)
+                double sinr = signal / (noisePowerMw + (1.0f * interference));
                 sinrLinear[i, l] = sinr;
                 sinrDb[i, l] = 10.0 * Math.Log10(sinr);
             }
@@ -194,4 +184,3 @@ public class RadioLinkModel : MonoBehaviour
         return (sinrLinear, sinrDb);
     }
 }
-

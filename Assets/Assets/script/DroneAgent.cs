@@ -8,6 +8,9 @@ using Unity.MLAgents.Sensors;
 [RequireComponent(typeof(DroneController))]
 public class DroneAgent : Agent
 {
+    [Header("Debug Options")]
+    public bool debugLog = false;
+
     [Header("Energy scaling")]
     [SerializeField] bool drainBySteps = true;
     [SerializeField] float secondsPerStepForEnergy = 0.02f;
@@ -40,6 +43,9 @@ public class DroneAgent : Agent
     [Header("QoE reward")]
     public float totalWeightDenom = 1f;
     public float eps = 1e-6f;
+
+    private float lastQoE = 0f;
+    private int lastOverlap = 0;
 
     public bool IsEliminated => _isEliminated;
     int GetSrcId() => gameObject.GetInstanceID();
@@ -123,7 +129,7 @@ public class DroneAgent : Agent
     public float xMin = -650f, xMax = 60f;
     public float zMin = -1100f, zMax = -50f;
     public Vector2 yLimit = new Vector2(0f, 300f);
-    public float boundaryPenalty = -0.2f;
+    public float boundaryPenalty = -0.5f;
     public bool endOnBoundary = true;
 
     public LayerMask obstacleLayers;
@@ -239,10 +245,17 @@ public class DroneAgent : Agent
         // === 생존 소액 보상 ===
         AddReward(aliveTinyReward);
 
-        if (debugReward)
+        if (debugLog)
         {
             Debug.Log($"[Agent {gameObject.name}] QoE={qoe:F3}  Ene={ene:F3}  indiv={indiv:F3}  stepR={(indiv + aliveTinyReward):F4}");
         }
+
+    }
+
+    public void ReportQoEAndOverlap(float perDroneQoENumerator, int overconnect)
+    {
+        lastQoE = perDroneQoENumerator;
+        lastOverlap = overconnect;
     }
 
     // ===== Reward terms =====
@@ -440,8 +453,11 @@ public class DroneAgent : Agent
             {
                 AddReward(collisionPenalty);
                 Eliminate("collision");
+
+                Debug.Log($"Drone {gameObject.name} eliminated due to collision");
             }
         }
+        
     }
 
     void Eliminate(string reason)
@@ -466,6 +482,12 @@ public class DroneAgent : Agent
         if (disableColliderOnElim && _allColliders != null)
         {
             foreach (var c in _allColliders) if (c) c.enabled = false;
+        }
+
+        if (_allRenderers != null)
+        {
+            foreach (var r in _allRenderers)
+                if (r) r.enabled = false;
         }
 
         int src = gameObject.GetInstanceID();
@@ -498,7 +520,7 @@ public class DroneAgent : Agent
 
     // 호환용 no-op (다른 코드에서 호출해도 에러 방지)
     public void BeginStepAggregation() { }
-    public void ReportQoEAndOverlap(float perDroneQoENumerator, int overconnect) { }
+    
 
     public override void Heuristic(in ActionBuffers actionsOut)
     {
