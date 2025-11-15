@@ -8,16 +8,22 @@ public class DroneTeamManager : MonoBehaviour
     public List<DroneAgent> agents = new List<DroneAgent>();
 
     [Header("Group episode")]
-    public int groupMaxSteps = 20000;      // 팀 에피소드 길이
+    public int groupMaxSteps = 20000;
     public bool endWhenAllEliminated = true;
 
-    // 한 명이라도 탈락 시 즉시 종료
     [Header("Early termination")]
     public bool endOnAnyElimination = true;
 
     private SimpleMultiAgentGroup group;
     private int groupStep;
     private int lastAliveCount = -1;
+
+    // ---- 그룹 보상 램프업 설정 ----
+    [Header("Team Reward Ramp-Up")]
+    public long startTeamRewardStep = 300000;  // 그룹보상 시작
+    public long fullRewardStep = 600000;       // 그룹보상 1.0 되는 시점
+
+    private long globalStep = 0;               // 전체 스텝 카운터
 
     void Awake()
     {
@@ -32,7 +38,7 @@ public class DroneTeamManager : MonoBehaviour
         foreach (var a in agents)
         {
             if (a == null) continue;
-            a.useGroupEpisodes = true;   // 개별 에피소드 종료 비활성화
+            a.useGroupEpisodes = true;
             group.RegisterAgent(a);
         }
 
@@ -41,12 +47,30 @@ public class DroneTeamManager : MonoBehaviour
 
     void FixedUpdate()
     {
-        // 1) 그룹 보상: cov만 사용
+        globalStep++;
+
+        // ----- 1) 그룹 보상 weight 계산 -----
+        float weight = 0f;
+
+        if (globalStep >= startTeamRewardStep)
+        {
+            if (globalStep >= fullRewardStep)
+                weight = 1f;
+            else
+            {
+                float t = (float)(globalStep - startTeamRewardStep) /
+                          (float)(fullRewardStep - startTeamRewardStep);
+                weight = Mathf.Clamp01(t);
+            }
+        }
+
+        // ----- 2) 그룹 보상 계산 및 적용 -----
         float cov = DroneAgent.ComputeCoverageRewardForScene();
-        float groupR = cov;
+        float groupR = cov * weight;
+
         group.AddGroupReward(groupR);
 
-        // 2) 생존 상태 확인 및 조기 종료
+        // ----- 3) 생존 체크 -----
         int N = 0, alive = 0;
         foreach (var a in agents)
         {
@@ -61,14 +85,13 @@ public class DroneTeamManager : MonoBehaviour
             groupStep = 0;
             lastAliveCount = -1;
 
-            // (선택) 간단 로그
             if (Time.frameCount % 60 == 0)
-                Debug.Log($"[Team] early-terminated: a death occurred. cov={cov:F3} alive={alive}/{N}");
-            return; // 이번 스텝의 나머지 계산 생략
+                Debug.Log($"[Team] early-terminated: death. cov={cov:F3}, weight={weight:F2}");
+            return;
         }
         lastAliveCount = alive;
 
-        // 3) 일반 종료 조건
+        // ----- 4) 일반 종료 -----
         groupStep++;
         if ((groupMaxSteps > 0 && groupStep >= groupMaxSteps) ||
             (endWhenAllEliminated && alive == 0))
@@ -78,10 +101,10 @@ public class DroneTeamManager : MonoBehaviour
             lastAliveCount = -1;
         }
 
-        // (선택) 1초마다 상태 로그
+        // ----- 5) 디버그 -----
         if (Time.frameCount % 60 == 0)
         {
-            Debug.Log($"[Team] step={groupStep} cov={cov:F3} alive={alive}/{N}");
+            Debug.Log($"[Team] step={groupStep} cov={cov:F3} weight={weight:F2} alive={alive}/{N}");
         }
     }
 }

@@ -124,12 +124,12 @@ public class DroneAgent : Agent
 
     // ===== 경계/충돌 =====
     [Header("Collision & Boundary")]
-    public float collisionPenalty = -0.5f;
+    public float collisionPenalty = -100.0f;
     public bool endOnCollision = true;
     public float xMin = -650f, xMax = 60f;
     public float zMin = -1100f, zMax = -50f;
     public Vector2 yLimit = new Vector2(0f, 300f);
-    public float boundaryPenalty = -0.5f;
+    public float boundaryPenalty = -100.0f;
     public bool endOnBoundary = true;
 
     public LayerMask obstacleLayers;
@@ -137,7 +137,7 @@ public class DroneAgent : Agent
 
     // ===== 초반 안정화(그레이스 + 생존 소액 보상) =====
     [Header("Survival shaping")]
-    public int graceSteps = 1000;          // 초반 보호 구간
+    public int graceSteps = 200;          // 초반 보호 구간
     public float aliveTinyReward = 0.002f; // 살아있기만 해도 매 스텝 주는 소액 보상
     private int globalStep = 0;
 

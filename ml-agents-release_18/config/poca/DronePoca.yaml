@@ -29,5 +29,5 @@ engine_settings:
   no_graphics: true       
 
 env_settings:
-  env_path: "C:\\Users\\ajou\\My project\\Please\\Builds\\My project.exe"
+  env_path: "C:\\Users\\ajou\\Please\\Builds\\My project.exe"
   num_envs: 4
