@@ -258,6 +258,10 @@ public class DroneAgent : Agent
         // === 생존 소액 보상 === 
         AddReward(aliveTinyReward);
 
+        // === 경계 근처 패널티 + 드론 간 너무 가까우면 패널티 ===
+        AddReward(BoundaryPenalty());
+        AddReward(DroneDistancePenalty());
+
         if (debugLog)
         {
             Debug.Log($"[Agent {gameObject.name}] QoE={qoe:F3}  Ene={ene:F3}  indiv={indiv:F3}  stepR={(indiv + aliveTinyReward):F4}");
@@ -356,6 +360,55 @@ public class DroneAgent : Agent
     {
         if (energyWhInit <= 0f) return 0f;
         return Mathf.Clamp01(energyWh / energyWhInit);
+    }
+
+    private float BoundaryPenalty()
+    {
+        // 바운더리 "밖"으로 나가면 FixedUpdate에서 이미 -100, 제거 처리하니까
+        // 여기서는 "경계 근처" 들어가면 살짝 감점만 주는 용도 (B 방식)
+        float penalty = 0f;
+
+        Vector3 pos = transform.position;
+
+        float distXmin = Mathf.Abs(pos.x - xMin);
+        float distXmax = Mathf.Abs(pos.x - xMax);
+        float distZmin = Mathf.Abs(pos.z - zMin);
+        float distZmax = Mathf.Abs(pos.z - zMax);
+
+        float threshold = 50f; // 경계 50m 이내면 위험 구역
+        float stepPenalty = 0.2f; // 한 축당 -0.2
+
+        if (distXmin < threshold) penalty -= stepPenalty;
+        if (distXmax < threshold) penalty -= stepPenalty;
+        if (distZmin < threshold) penalty -= stepPenalty;
+        if (distZmax < threshold) penalty -= stepPenalty;
+
+        return penalty;
+    }
+
+    private float DroneDistancePenalty()
+    {
+        float penalty = 0f;
+
+        float minDist = 30f;  // 최소 안전 거리 (필요하면 20~50 사이로 조정)
+
+        var agents = FindObjectsOfType<DroneAgent>();
+        if (agents == null || agents.Length == 0) return 0f;
+
+        foreach (var other in agents)
+        {
+            if (other == null || other == this || other.IsEliminated) continue;
+
+            float d = Vector3.Distance(transform.position, other.transform.position);
+
+            if (d < minDist)
+            {
+                // 가까울수록 패널티 커지게
+                penalty -= (minDist - d) * 0.05f;
+            }
+        }
+
+        return penalty;
     }
 
     // ===== Observation helpers =====
@@ -553,9 +606,6 @@ public class DroneAgent : Agent
                 if (r) r.enabled = true;
         }
     }
-
-
-    
 
     public override void Heuristic(in ActionBuffers actionsOut)
     {
