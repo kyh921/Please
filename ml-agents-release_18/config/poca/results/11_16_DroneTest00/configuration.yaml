@@ -41,7 +41,7 @@ behaviors:
 env_settings:
   env_path: C:\Users\ajou\Please\Builds1\My project.exe
   env_args: null
-  base_port: 5005
+  base_port: 6000
   num_envs: 4
   seed: -1
 engine_settings:
