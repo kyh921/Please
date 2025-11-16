@@ -1,0 +1,128 @@
+{
+    "DronePoca": {
+        "checkpoints": [
+            {
+                "steps": 199924,
+                "file_path": "results\\DroneTrain_yh\\DronePoca\\DronePoca-199924.onnx",
+                "reward": -43.50118102560872,
+                "creation_time": 1763123212.0954728,
+                "auxillary_file_paths": [
+                    "results\\DroneTrain_yh\\DronePoca\\DronePoca-199924.pt"
+                ]
+            },
+            {
+                "steps": 399960,
+                "file_path": "results\\DroneTrain_yh\\DronePoca\\DronePoca-399960.onnx",
+                "reward": -28.314226971211887,
+                "creation_time": 1763123471.8382952,
+                "auxillary_file_paths": [
+                    "results\\DroneTrain_yh\\DronePoca\\DronePoca-399960.pt"
+                ]
+            },
+            {
+                "steps": 599972,
+                "file_path": "results\\DroneTrain_yh\\DronePoca\\DronePoca-599972.onnx",
+                "reward": -11.501085817813873,
+                "creation_time": 1763123749.773357,
+                "auxillary_file_paths": [
+                    "results\\DroneTrain_yh\\DronePoca\\DronePoca-599972.pt"
+                ]
+            },
+            {
+                "steps": 799957,
+                "file_path": "results\\DroneTrain_yh\\DronePoca\\DronePoca-799957.onnx",
+                "reward": 20.48742750770337,
+                "creation_time": 1763124041.4307396,
+                "auxillary_file_paths": [
+                    "results\\DroneTrain_yh\\DronePoca\\DronePoca-799957.pt"
+                ]
+            },
+            {
+                "steps": 999997,
+                "file_path": "results\\DroneTrain_yh\\DronePoca\\DronePoca-999997.onnx",
+                "reward": 70.29151028729976,
+                "creation_time": 1763124311.5007873,
+                "auxillary_file_paths": [
+                    "results\\DroneTrain_yh\\DronePoca\\DronePoca-999997.pt"
+                ]
+            },
+            {
+                "steps": 1199875,
+                "file_path": "results\\DroneTrain_yh\\DronePoca\\DronePoca-1199875.onnx",
+                "reward": 85.54244256019592,
+                "creation_time": 1763124595.7299907,
+                "auxillary_file_paths": [
+                    "results\\DroneTrain_yh\\DronePoca\\DronePoca-1199875.pt"
+                ]
+            },
+            {
+                "steps": 1399991,
+                "file_path": "results\\DroneTrain_yh\\DronePoca\\DronePoca-1399991.onnx",
+                "reward": 91.71211240456923,
+                "creation_time": 1763124902.9801972,
+                "auxillary_file_paths": [
+                    "results\\DroneTrain_yh\\DronePoca\\DronePoca-1399991.pt"
+                ]
+            },
+            {
+                "steps": 1599911,
+                "file_path": "results\\DroneTrain_yh\\DronePoca\\DronePoca-1599911.onnx",
+                "reward": 86.6652767136693,
+                "creation_time": 1763125184.7006574,
+                "auxillary_file_paths": [
+                    "results\\DroneTrain_yh\\DronePoca\\DronePoca-1599911.pt"
+                ]
+            },
+            {
+                "steps": 1799890,
+                "file_path": "results\\DroneTrain_yh\\DronePoca\\DronePoca-1799890.onnx",
+                "reward": 63.62122521891313,
+                "creation_time": 1763125464.1196554,
+                "auxillary_file_paths": [
+                    "results\\DroneTrain_yh\\DronePoca\\DronePoca-1799890.pt"
+                ]
+            },
+            {
+                "steps": 1999934,
+                "file_path": "results\\DroneTrain_yh\\DronePoca\\DronePoca-1999934.onnx",
+                "reward": 77.11861450863736,
+                "creation_time": 1763125799.6239293,
+                "auxillary_file_paths": [
+                    "results\\DroneTrain_yh\\DronePoca\\DronePoca-1999934.pt"
+                ]
+            },
+            {
+                "steps": 2199944,
+                "file_path": "results\\DroneTrain_yh\\DronePoca\\DronePoca-2199944.onnx",
+                "reward": 114.92343412107891,
+                "creation_time": 1763126179.9361072,
+                "auxillary_file_paths": [
+                    "results\\DroneTrain_yh\\DronePoca\\DronePoca-2199944.pt"
+                ]
+            },
+            {
+                "steps": 2350850,
+                "file_path": "results\\DroneTrain_yh\\DronePoca\\DronePoca-2350850.onnx",
+                "reward": null,
+                "creation_time": 1763126360.6713543,
+                "auxillary_file_paths": [
+                    "results\\DroneTrain_yh\\DronePoca\\DronePoca-2350850.pt"
+                ]
+            }
+        ],
+        "final_checkpoint": {
+            "steps": 2350850,
+            "file_path": "results\\DroneTrain_yh\\DronePoca.onnx",
+            "reward": null,
+            "creation_time": 1763126360.6713543,
+            "auxillary_file_paths": [
+                "results\\DroneTrain_yh\\DronePoca\\DronePoca-2350850.pt"
+            ]
+        }
+    },
+    "metadata": {
+        "stats_format_version": "0.3.0",
+        "mlagents_version": "0.27.0",
+        "torch_version": "1.13.1+cpu"
+    }
+}
