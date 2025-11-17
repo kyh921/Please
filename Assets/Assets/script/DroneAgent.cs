@@ -191,7 +191,7 @@ public class DroneAgent : Agent
     [Header("QoE scaling")]
     [Tooltip("QoE 전체 스케일 (자살 전략이 이득 안 되도록 줄이는 용도)")]
     [Range(0f, 1f)]
-    public float qoeScale = 1.0f;   // ★ 변경: 0.2f -> 1.0f
+    public float qoeScale = 0.2f;   // ★ 변경: 0.2f -> 1.0f
 
     void Awake()
     {
