@@ -8,7 +8,7 @@ public class DroneTeamManager : MonoBehaviour
     public List<DroneAgent> agents = new List<DroneAgent>();
 
     [Header("Group episode")]
-    public int groupMaxSteps = 20000;      // 팀 에피소드 길이
+    public int groupMaxSteps = 5000;      // 팀 에피소드 길이
     public bool endWhenAllEliminated = true;
 
     // 한 명이라도 탈락 시 즉시 종료
@@ -19,10 +19,11 @@ public class DroneTeamManager : MonoBehaviour
     private int groupStep;
     private int lastAliveCount = -1;
 
+    [Header("Coverage group reward")]
+    public float coverageGroupScale = 5f;   // 필요하면 2~10 사이에서 조정
+    private float prevCovTeam = 0f;
 
-
-
-
+   
 
     void Awake()
     {
@@ -42,21 +43,35 @@ public class DroneTeamManager : MonoBehaviour
         }
 
         groupStep = 0;
+
+        prevCovTeam = DroneAgent.ComputeCoverageRewardForScene();
     }
 
     void FixedUpdate()
     {
         // 1) (선택) 팀 커버리지에 대한 '양의' 그룹 보상은 유지
-        float covTeam = DroneAgent.ComputeCoverageRewardForScene();
-        float groupR = covTeam / Mathf.Max(1, groupMaxSteps);
-        group.AddGroupReward(groupR);
+        float covTeam = DroneAgent.ComputeCoverageRewardForScene();   // 0~1
+
+        if (groupStep == 0)
+        {
+            prevCovTeam = covTeam;
+        }
+
+        else
+        {
+            float deltaCov = covTeam - prevCovTeam;
+            prevCovTeam = covTeam;
+
+            // 증가하면 +, 감소하면 - (그대로 반영)
+            group.AddGroupReward(deltaCov * coverageGroupScale);
+        }
 
         // 2) 생존 상태 확인
         int alive = 0;
         foreach (var a in agents)
             if (a != null && !a.IsEliminated) alive++;
 
-        // ★ 3) 한 명이라도 줄어들었고, endOnAnyElimination이면 "패널티 없이" 즉시 종료
+        // 3) 한 명이라도 줄어들었고, endOnAnyElimination이면 "패널티 없이" 즉시 종료
         if (lastAliveCount >= 0 && alive < lastAliveCount && endOnAnyElimination)
         {
             // 팀 패널티/개별 패널티 절대 부여하지 않음
