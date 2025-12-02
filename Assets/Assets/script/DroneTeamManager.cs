@@ -50,7 +50,12 @@ public class DroneTeamManager : MonoBehaviour
         float covTeam = DroneAgent.ComputeCoverageRewardForScene();
         float groupR = covTeam / Mathf.Max(1, groupMaxSteps);
         group.AddGroupReward(groupR);
-
+        
+        // 여기서 팀 보상/커버리지 로그 추가
+        var stats = Academy.Instance.StatsRecorder;
+        stats.Add("Team/CovTeam", covTeam);      // 팀 커버리지 값
+        stats.Add("Team/GroupReward", groupR);   // 그룹 보상(스텝당)
+        
         // 2) 생존 상태 확인
         int alive = 0;
         foreach (var a in agents)

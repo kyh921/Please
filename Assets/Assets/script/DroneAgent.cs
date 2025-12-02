@@ -12,7 +12,73 @@ public class DroneAgent : Agent
     [SerializeField] bool drainBySteps = true;
     [SerializeField] float secondsPerStepForEnergy = 0.02f;
 
+    [Header("Debug metrics (for logging)")]
+    public float debugQoE;
+    public float debugCov;
+    public float debugEne;
 
+    [Header("Logging")]
+    public bool logTrainingStats = true;
+
+    const int UncoveredSectorCount = 8;
+    float[] _uncoveredSectors = new float[UncoveredSectorCount];
+
+    void GetUncoveredDemandSectors(int sectorCount, float maxDist, float[] sectorValues)
+    {
+        // 배열 초기화
+        for (int i = 0; i < sectorCount; i++)
+            sectorValues[i] = 0f;
+
+        Vector3 myPos = transform.position;
+        float sectorAngle = Mathf.PI * 2f / sectorCount;
+
+        foreach (var rr in RadioReceiver.All)
+        {
+            if (rr == null) continue;
+
+            var area = rr.GetComponentInParent<DemandArea>();
+            if (area == null || area.kind != AreaKind.Building) continue;
+
+            int demand = Mathf.Max(0, area.demand);
+            if (demand <= 0) continue;
+
+            // "미커버 UE"만 사용 (아무 드론과도 연결 안 된 UE)
+            if (rr.ConnectedSourceCount > 0)
+                continue;
+
+            Vector3 delta = rr.transform.position - myPos;
+            // 수평면만 고려
+            delta.y = 0f;
+
+            float dist = delta.magnitude;
+            if (dist < 1e-3f || dist > maxDist)
+                continue;
+
+            // [-PI, PI] → [0, 2PI)
+            float angle = Mathf.Atan2(delta.z, delta.x);
+            if (angle < 0f) angle += Mathf.PI * 2f;
+
+            int idx = (int)(angle / sectorAngle);
+            if (idx >= sectorCount) idx = sectorCount - 1;
+
+            // 거리 가중치를 줄 수도 있음 (가까울수록 더 중요하게)
+            // float weight = 1f / (1f + dist); // 선택 사항
+            float weight = 1f;
+
+            sectorValues[idx] += demand * weight;
+        }
+
+        // 정규화: 가장 큰 값 기준으로 0~1 스케일링
+        float maxVal = 0f;
+        for (int i = 0; i < sectorCount; i++)
+            if (sectorValues[i] > maxVal) maxVal = sectorValues[i];
+
+        if (maxVal > 0f)
+        {
+            for (int i = 0; i < sectorCount; i++)
+                sectorValues[i] = Mathf.Clamp01(sectorValues[i] / maxVal);
+        }
+    }
 
     [Header("Elimination (no instant respawn)")]
     public bool eliminateOnFail = true;
@@ -126,7 +192,7 @@ public class DroneAgent : Agent
             ? Mathf.Max(secondsPerStepForEnergy, 1e-4f)
             : (Time.inFixedTimeStep ? Time.fixedDeltaTime : Time.deltaTime);
 
-        float distanceScale = 8.0f;
+        float distanceScale = 10.0f;
 
         float V;
         if (_rb != null)
@@ -238,6 +304,10 @@ public class DroneAgent : Agent
 
         // 5) 팀 생존율
         s.AddObservation(ComputeSurvivalRatio());
+
+        GetUncoveredDemandSectors(UncoveredSectorCount, 500f, _uncoveredSectors);
+        for (int i = 0; i < UncoveredSectorCount; i++)
+            s.AddObservation(_uncoveredSectors[i]);
     }
 
     public bool debugReward = false;
@@ -281,12 +351,27 @@ public class DroneAgent : Agent
 
         float qoe = ComputeQoEReward_Aggregated();
         float ene = ComputeEnergyReward();
-        float cov = 5f*ComputeMyDemandRatio();
+        float cov = ComputeMyDemandRatio();
 
-        // === 개별 보상: qoe * ene (λ 사용 없음) ===
+        debugQoE = qoe;
+        debugCov = cov;
+        debugEne = ene;
+
+        // === 개별 보상: qoe * ene * cov
         float indiv = qoe * cov * ene ;
         AddReward(indiv);
+        if (logTrainingStats)
+        {
+            var stats = Academy.Instance.StatsRecorder;
 
+            // 각 구성 보상
+            stats.Add("Drone/QoE", qoe);
+            stats.Add("Drone/Cov", cov);
+            stats.Add("Drone/Ene", ene);
+
+            // 개별 보상(팀 보상에 기여하는 값)
+            stats.Add("Drone/IndivReward", indiv);
+        }
         // === 생존 소액 보상 ===
         AddReward(aliveTinyReward);
 
@@ -363,7 +448,7 @@ public class DroneAgent : Agent
         }
 
         if (denom <= 0f) return 0f;
-        return Mathf.Clamp01(num / denom);
+        return Mathf.Max(0f, num / denom);
     }
 
     public static float ComputeCoverageRewardForScene()
@@ -401,7 +486,7 @@ public class DroneAgent : Agent
     {
         int srcId = GetSrcId();
         float myUnique = 0f;
-        float total = 0f;
+        float myCovered = 0f;   // ★ 추가: 내가 커버하는 demand 합
 
         foreach (var rr in RadioReceiver.All)
         {
@@ -410,15 +495,22 @@ public class DroneAgent : Agent
             if (area == null || area.kind != AreaKind.Building) continue;
 
             int d = Mathf.Max(0, area.demand);
-            total += d;
 
-            // 나만 연결한 UE만 인정
-            if (rr.ConnectedSourceCount == 1 && rr.IsConnectedTo(srcId))
-                myUnique += d;
+            // 내가 커버하고 있는 UE면 분모에 포함
+            if (rr.IsConnectedTo(srcId))
+            {
+                myCovered += d;
+
+                // 그 중에서 나만 연결된 UE만 분자에 포함
+                if (rr.ConnectedSourceCount == 1)
+                    myUnique += d;
+            }
         }
 
-        return (total > 0f) ? Mathf.Clamp01(myUnique / total) : 0f;
+        if (myCovered <= 0f) return 0f;
+        return myUnique / myCovered;   // ★ 0~1, 사실상 90/100 같은 비율
     }
+
 
     float ComputeNeighborDensity()
     {
