@@ -12,6 +12,14 @@ public class DroneAgent : Agent
     [SerializeField] bool drainBySteps = true;
     [SerializeField] float secondsPerStepForEnergy = 0.02f;
 
+    [Header("Debug metrics (for logging)")]
+    public float debugQoE;
+    public float debugCov;
+    public float debugEne;
+
+    [Header("Logging")]
+    public bool logTrainingStats = true;
+
     const int UncoveredSectorCount = 8;
     float[] _uncoveredSectors = new float[UncoveredSectorCount];
 
@@ -184,7 +192,7 @@ public class DroneAgent : Agent
             ? Mathf.Max(secondsPerStepForEnergy, 1e-4f)
             : (Time.inFixedTimeStep ? Time.fixedDeltaTime : Time.deltaTime);
 
-        float distanceScale = 8.0f;
+        float distanceScale = 10.0f;
 
         float V;
         if (_rb != null)
@@ -345,10 +353,25 @@ public class DroneAgent : Agent
         float ene = ComputeEnergyReward();
         float cov = ComputeMyDemandRatio();
 
-        // === 개별 보상: qoe * ene (λ 사용 없음) ===
+        debugQoE = qoe;
+        debugCov = cov;
+        debugEne = ene;
+
+        // === 개별 보상: qoe * ene * cov
         float indiv = qoe * cov * ene ;
         AddReward(indiv);
+        if (logTrainingStats)
+        {
+            var stats = Academy.Instance.StatsRecorder;
 
+            // 각 구성 보상
+            stats.Add("Drone/QoE", qoe);
+            stats.Add("Drone/Cov", cov);
+            stats.Add("Drone/Ene", ene);
+
+            // 개별 보상(팀 보상에 기여하는 값)
+            stats.Add("Drone/IndivReward", indiv);
+        }
         // === 생존 소액 보상 ===
         AddReward(aliveTinyReward);
 
