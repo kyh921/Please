@@ -15,6 +15,10 @@ public class DroneAgent : Agent
     const int UncoveredSectorCount = 8;
     float[] _uncoveredSectors = new float[UncoveredSectorCount];
 
+    public float debugQoE;
+    public float debugCov;
+    public float debugEne;
+
     void GetUncoveredDemandSectors(int sectorCount, float maxDist, float[] sectorValues)
     {
         // 배열 초기화
@@ -344,6 +348,10 @@ public class DroneAgent : Agent
         float qoe = ComputeQoEReward_Aggregated();
         float ene = ComputeEnergyReward();
         float cov = ComputeMyDemandRatio();
+
+        debugQoE = qoe;
+        debugCov = cov;
+        debugEne = ene;
 
         // === 개별 보상: qoe * ene (λ 사용 없음) ===
         float indiv = qoe * cov * ene ;
