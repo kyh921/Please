@@ -1,0 +1,56 @@
+{
+    "DronePoca": {
+        "checkpoints": [
+            {
+                "steps": 199951,
+                "file_path": "results\\onlycov\\DronePoca\\DronePoca-199951.onnx",
+                "reward": 122.44715357675719,
+                "creation_time": 1765509257.623203,
+                "auxillary_file_paths": [
+                    "results\\onlycov\\DronePoca\\DronePoca-199951.pt"
+                ]
+            },
+            {
+                "steps": 399891,
+                "file_path": "results\\onlycov\\DronePoca\\DronePoca-399891.onnx",
+                "reward": 198.9239947225463,
+                "creation_time": 1765509755.7410634,
+                "auxillary_file_paths": [
+                    "results\\onlycov\\DronePoca\\DronePoca-399891.pt"
+                ]
+            },
+            {
+                "steps": 599938,
+                "file_path": "results\\onlycov\\DronePoca\\DronePoca-599938.onnx",
+                "reward": 178.35269396356782,
+                "creation_time": 1765510253.2776453,
+                "auxillary_file_paths": [
+                    "results\\onlycov\\DronePoca\\DronePoca-599938.pt"
+                ]
+            },
+            {
+                "steps": 622636,
+                "file_path": "results\\onlycov\\DronePoca\\DronePoca-622636.onnx",
+                "reward": null,
+                "creation_time": 1765510294.881077,
+                "auxillary_file_paths": [
+                    "results\\onlycov\\DronePoca\\DronePoca-622636.pt"
+                ]
+            }
+        ],
+        "final_checkpoint": {
+            "steps": 622636,
+            "file_path": "results\\onlycov\\DronePoca.onnx",
+            "reward": null,
+            "creation_time": 1765510294.881077,
+            "auxillary_file_paths": [
+                "results\\onlycov\\DronePoca\\DronePoca-622636.pt"
+            ]
+        }
+    },
+    "metadata": {
+        "stats_format_version": "0.3.0",
+        "mlagents_version": "0.27.0",
+        "torch_version": "1.13.1+cpu"
+    }
+}

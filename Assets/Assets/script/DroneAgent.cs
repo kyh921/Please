@@ -5,6 +5,7 @@ using Unity.MLAgents;
 using Unity.MLAgents.Actuators;
 using Unity.MLAgents.Sensors;
 
+
 [RequireComponent(typeof(DroneController))]
 public class DroneAgent : Agent
 {
@@ -357,6 +358,12 @@ public class DroneAgent : Agent
         float indiv = qoe * cov * ene ;
         AddReward(indiv);
 
+        var stats = Academy.Instance.StatsRecorder;
+
+        stats.Add("Drone/QoE", qoe);
+        stats.Add("Drone/Cov", cov);
+        stats.Add("Drone/Ene", ene);
+        stats.Add("Drone/IndivReward", indiv);
         // === 생존 소액 보상 ===
         AddReward(aliveTinyReward);
 
